@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TrayStation</title>
+<meta name="description" content="Latent Liminal OS. A walkable desktop — day drifts into night over the valley. Programs installed without notice.">
+<meta property="og:title" content="TrayStation">
+<meta property="og:description" content="Latent Liminal OS. A walkable desktop — day drifts into night over the valley.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://traystation.github.io/">
+<meta property="og:image" content="https://traystation.github.io/share.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TrayStation">
+<meta name="twitter:description" content="Latent Liminal OS. A walkable desktop — day drifts into night over the valley.">
+<meta name="twitter:image" content="https://traystation.github.io/share.jpg">
+<meta name="theme-color" content="#245EDC">
+<style>
+  :root{
+    --xp-blue:#245EDC; --xp-blue-dark:#1941A5; --xp-blue-light:#3E7DF0;
+    --xp-green:#3C8B22; --xp-green-light:#5BB338;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;
+    font-family:Tahoma,"Segoe UI",Geneva,Verdana,sans-serif;
+    -webkit-user-select:none;user-select:none;touch-action:none;}
+  #scene{position:fixed;inset:0;display:block;cursor:grab;}
+  #scene.dragging{cursor:grabbing;}
+
+/* ––––– Boot screen ––––– */
+#boot{position:fixed;inset:0;background:#000;z-index:100;display:flex;
+flex-direction:column;align-items:center;justify-content:center;gap:38px;
+transition:opacity .9s ease;}
+#boot.gone{opacity:0;pointer-events:none;}
+#boot .logo{color:#fff;font-size:34px;letter-spacing:.5px;font-weight:400;}
+#boot .logo b{font-weight:700;}
+#boot .logo .tm{font-size:11px;vertical-align:top;color:#aaa;}
+#boot .bar{width:200px;height:16px;border:2px solid #8a8a8a;border-radius:8px;
+overflow:hidden;position:relative;}
+#boot .blocks{position:absolute;top:2px;left:-60px;display:flex;gap:3px;
+animation:bootslide 1.6s linear infinite;}
+#boot .blocks span{width:11px;height:8px;background:linear-gradient(#5A93E8,#2E5FC4);
+border-radius:1px;display:block;}
+@keyframes bootslide{from{left:-60px}to{left:210px}}
+#boot .enter{color:#ccc;font-size:13px;opacity:0;transition:opacity .8s ease;
+height:16px;margin-top:-16px;}
+#boot.ready .bar{visibility:hidden;}
+#boot.ready .enter{opacity:1;animation:pulse 2.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+#boot .foot{position:absolute;bottom:26px;color:#777;font-size:11px;}
+
+/* ––––– HUD ––––– */
+#hint{position:fixed;top:14px;left:14px;z-index:20;color:#fff;font-size:12px;
+background:rgba(10,20,50,.45);border:1px solid rgba(255,255,255,.25);
+padding:7px 12px;border-radius:3px;backdrop-filter:blur(3px);
+transition:opacity 1.2s ease;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6);}
+#hint.gone{opacity:0;}
+#prompt{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:20;
+color:#fff;font-size:13px;background:rgba(10,20,50,.55);
+border:1px solid rgba(255,255,255,.3);padding:8px 16px;border-radius:3px;
+opacity:0;transition:opacity .25s ease;pointer-events:none;
+text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap;}
+#prompt.show{opacity:1;}
+
+/* ––––– Taskbar ––––– */
+#taskbar{position:fixed;left:0;right:0;bottom:0;height:32px;z-index:30;
+background:linear-gradient(#3E7DF0 0%,#2A62DE 8%,#245EDC 45%,#1E52C6 92%,#1941A5 100%);
+display:flex;align-items:stretch;box-shadow:0 -1px 4px rgba(0,0,0,.4);}
+#startBtn{display:flex;align-items:center;gap:6px;padding:0 16px 0 10px;border:none;
+background:linear-gradient(#7CC45A 0%,#5BB338 10%,#3C8B22 50%,#2F7519 95%);
+color:#fff;font-family:inherit;font-size:15px;font-style:italic;font-weight:700;
+border-radius:0 8px 8px 0;cursor:pointer;text-shadow:1px 1px 2px rgba(0,0,0,.45);
+box-shadow:inset 0 0 4px rgba(255,255,255,.35), 2px 0 4px rgba(0,0,0,.25);}
+#startBtn:hover{filter:brightness(1.08);}
+#startBtn:active{filter:brightness(.92);}
+#startBtn .orb{width:16px;height:16px;border-radius:50%;
+background:radial-gradient(circle at 35% 30%, #fff 0%, #ffd24a 22%, #e8302a 46%, #2a8a30 72%, #2456c8 100%);
+box-shadow:0 0 3px rgba(0,0,0,.4);}
+#tray{margin-left:auto;display:flex;align-items:center;padding:0 12px;
+background:linear-gradient(#2FA0E8 0%,#1B7ED0 50%,#1668B8 100%);
+border-left:1px solid rgba(0,0,0,.3);box-shadow:inset 1px 1px 2px rgba(255,255,255,.25);}
+#clock{color:#fff;font-size:12px;text-shadow:0 1px 1px rgba(0,0,0,.4);min-width:52px;text-align:center;}
+
+/* ––––– Start menu ––––– */
+#startMenu{position:fixed;left:0;bottom:32px;width:240px;z-index:29;
+background:#fff;border:1px solid var(–xp-blue-dark);border-radius:6px 6px 0 0;
+overflow:hidden;box-shadow:3px -3px 12px rgba(0,0,0,.35);display:none;}
+#startMenu.open{display:block;}
+#startMenu .head{background:linear-gradient(90deg,#1941A5,#3E7DF0);color:#fff;
+padding:12px 14px;font-size:14px;font-weight:700;font-style:italic;}
+#startMenu .head small{display:block;font-weight:400;font-style:normal;font-size:10px;
+opacity:.85;margin-top:2px;}
+#startMenu .items{padding:6px 0;}
+#startMenu .item{display:flex;align-items:center;gap:10px;padding:8px 14px;
+font-size:12px;color:#111;cursor:pointer;}
+#startMenu .item:hover{background:var(–xp-blue);color:#fff;}
+#startMenu .item .ic{width:22px;height:22px;flex:none;border-radius:3px;
+background:linear-gradient(135deg,#5A93E8,#2456c8);
+box-shadow:inset 0 0 3px rgba(255,255,255,.5);position:relative;}
+#startMenu .item .ic::after{content:””;position:absolute;inset:5px;
+border:1.5px solid rgba(255,255,255,.85);border-radius:1px;}
+#startMenu .foot{border-top:1px solid #d8d8d8;padding:8px 14px;font-size:10px;color:#777;
+background:#F4F4F0;}
+
+/* ––––– XP dialog ––––– */
+#dialog{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:40;
+width:min(340px,86vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
+border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
+#dialog.open{display:block;}
+#dialog .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
+color:#fff;font-size:13px;font-weight:700;padding:7px 10px;border-radius:7px 7px 0 0;
+display:flex;justify-content:space-between;align-items:center;
+text-shadow:0 1px 1px rgba(0,0,0,.4);}
+#dialog .tbar button{width:21px;height:21px;border:1px solid #fff;border-radius:3px;
+background:linear-gradient(#F0A088,#D44E28);color:#fff;font-weight:700;font-size:12px;
+cursor:pointer;line-height:1;font-family:inherit;}
+#dialog .body{padding:18px 16px;font-size:12px;color:#111;line-height:1.5;}
+#dialog .btnrow{display:flex;justify-content:center;padding:0 0 14px;}
+#dialog .btnrow button{font-family:inherit;font-size:12px;padding:4px 26px;
+border:1px solid #003C74;border-radius:3px;cursor:pointer;
+background:linear-gradient(#FDFDFB,#E5E5DE 85%,#CFCFC7);}
+
+/* ––––– XP app windows ––––– */
+.xpwin{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:40;
+width:min(400px,92vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
+border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
+.xpwin.open{display:block;}
+.xpwin .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
+color:#fff;font-size:13px;font-weight:700;padding:7px 10px;border-radius:7px 7px 0 0;
+display:flex;justify-content:space-between;align-items:center;
+text-shadow:0 1px 1px rgba(0,0,0,.4);}
+.xpwin .tbar button{width:21px;height:21px;border:1px solid #fff;border-radius:3px;
+background:linear-gradient(#F0A088,#D44E28);color:#fff;font-weight:700;font-size:12px;
+cursor:pointer;line-height:1;font-family:inherit;flex:none;}
+.xpwin .menubar{font-size:11px;padding:4px 10px;color:#222;display:flex;gap:14px;
+border-bottom:1px solid #d0cdbd;}
+.xpwin .note{background:#fff;font:12px/1.8 “Lucida Console”,“Courier New”,monospace;
+padding:14px 16px;margin:0 3px 3px;border:1px solid #b8b4a2;
+white-space:pre-wrap;color:#111;-webkit-user-select:text;user-select:text;}
+.xpwin .note a{color:#1941A5;}
+.xpwin .fld{display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:11px;}
+.xpwin .fld label{width:52px;color:#333;flex:none;}
+.xpwin .fld .val{flex:1;background:#fff;border:1px solid #7F9DB9;padding:4px 7px;
+font-size:12px;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+-webkit-user-select:text;user-select:text;}
+.xpwin .fld .val.dim{color:#888;font-style:italic;}
+.xpwin .cbody{background:#fff;border:1px solid #7F9DB9;margin:5px 12px;
+padding:8px 10px;font-size:12px;color:#111;min-height:64px;line-height:1.6;}
+.xpwin .cbody a{color:#1941A5;}
+.xpwin .btnrow{display:flex;justify-content:flex-end;gap:8px;padding:10px 12px 14px;}
+.xpwin .btnrow button{font-family:inherit;font-size:12px;padding:4px 20px;
+border:1px solid #003C74;border-radius:3px;cursor:pointer;
+background:linear-gradient(#FDFDFB,#E5E5DE 85%,#CFCFC7);}
+.xpwin .btnrow button:disabled{color:#999;cursor:default;}
+
+/* ––––– Mobile joystick ––––– */
+#stick{position:fixed;left:22px;bottom:56px;width:96px;height:96px;z-index:25;
+border-radius:50%;background:rgba(255,255,255,.10);
+border:1.5px solid rgba(255,255,255,.35);display:none;}
+#stick .nub{position:absolute;left:50%;top:50%;width:42px;height:42px;border-radius:50%;
+background:rgba(255,255,255,.45);transform:translate(-50%,-50%);
+box-shadow:0 1px 4px rgba(0,0,0,.3);}
+body.touch #stick{display:block;}
+
+/* ––––– Lightning flash ––––– */
+#flash{position:fixed;inset:0;background:#EAF2FF;opacity:0;pointer-events:none;
+z-index:28;transition:opacity .28s ease-out;}
+
+#sndBtn{border:none;background:none;cursor:pointer;font-size:14px;
+margin-right:8px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));
+font-family:inherit;line-height:1;padding:2px;}
+
+@media (prefers-reduced-motion: reduce){
+#boot .blocks{animation-duration:3.2s;}
+}
+</style>
+
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div id="flash"></div>
+
+<div id="boot">
+  <div class="logo"><b>Tray</b>Station<span class="tm">&nbsp;xp</span></div>
+  <div class="bar"><div class="blocks"><span></span><span></span><span></span></div></div>
+  <div class="enter" id="bootEnter">Click anywhere to begin</div>
+  <div class="foot">Copyright © 2026 Tracer Ital</div>
+</div>
+
+<div id="hint">Drag to look &nbsp;·&nbsp; W A S D to walk</div>
+<div id="prompt"></div>
+
+<div id="stick"><div class="nub"></div></div>
+
+<div id="startMenu">
+  <div class="head">TrayStation<small>Latent Liminal OS — Home Edition</small></div>
+  <div class="items" id="menuItems"></div>
+  <div class="foot">Updates pending — new programs will appear without notice.</div>
+</div>
+
+<div id="aboutWin" class="xpwin">
+  <div class="tbar"><span>about.txt — Notepad</span><button id="aboutX">✕</button></div>
+  <div class="menubar"><span>File</span><span>Edit</span><span>Format</span><span>View</span><span>Help</span></div>
+  <div class="note">Tracer Ital
+
+Film Director & Photographer.
+I ONLY DRINK FIJI WATER. 🌊
+
+Represented by <a href="https://www.adrenalinphotographic.com/photos/tracer-ital-2/" target="_blank" rel="noopener">Adrenalin Photographic</a>
+LDN • PARIS • LA • NYC</div>
+
+</div>
+
+<div id="contactWin" class="xpwin">
+  <div class="tbar"><span>New Message</span><button id="contactX">✕</button></div>
+  <div class="menubar"><span>File</span><span>Edit</span><span>Insert</span><span>Tools</span><span>Help</span></div>
+  <div class="fld"><label>To:</label><div class="val" id="cTo"></div></div>
+  <div class="fld"><label>Subject:</label><div class="val">Booking enquiry</div></div>
+  <div class="cbody">Direct line above — or go through representation:<br>
+    <a href="https://www.adrenalinphotographic.com/photos/tracer-ital-2/" target="_blank" rel="noopener">Adrenalin Photographic — view portfolio</a></div>
+  <div class="btnrow">
+    <button id="cCopy">Copy address</button>
+    <button id="cSend">Send</button>
+  </div>
+</div>
+
+<div id="taskbar">
+  <button id="startBtn"><span class="orb"></span>start</button>
+  <div id="tray"><button id="sndBtn" title="Sound">🔇</button><div id="clock">12:00</div></div>
+</div>
+
+<div id="dialog">
+  <div class="tbar"><span id="dlgTitle">Seafront.exe</span><button id="dlgX">✕</button></div>
+  <div class="body" id="dlgBody"></div>
+  <div class="btnrow"><button id="dlgOk">OK</button></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+/* ================================================================
+   TRAYSTATION — the valley
+   ----------------------------------------------------------------
+   DESKTOP MANIFEST
+   Add a new experience by adding one entry here. Nothing else
+   needs to change. `url` empty = shows a "coming soon" XP dialog.
+   pos = [x, z] on the grass. The icon finds its own ground height.
+   ================================================================ */
+const CONTACT_EMAIL = 'tracer@nothingbuttalent.co.uk';
+const ADRENALIN_URL = 'https://www.adrenalinphotographic.com/photos/tracer-ital-2/';
+
+const DESKTOP_EXPERIENCES = [
+  {
+    id: 'about',
+    file: 'about.txt',
+    label: 'About',
+    action: 'about',
+    pos: [-12, 22],
+    glyph: 'txt'
+  },
+  {
+    id: 'contact',
+    file: 'contact.eml',
+    label: 'Contact',
+    action: 'contact',
+    pos: [-3, 10],
+    glyph: 'eml'
+  },
+  {
+    id: 'seafront',
+    file: 'Seafront.exe',
+    label: 'Seafront',
+    url: 'https://traystation.github.io/seafront/',
+    pos: [16, -20],
+    glyph: 'sea'
+  },
+  {
+    id: 'github',
+    file: 'source.zip',
+    label: 'GitHub',
+    url: 'https://github.com/traystation',
+    pos: [-30, -40],
+    glyph: 'zip'
+  },
+  {
+    id: 'tracer',
+    file: 'tracer_ital.jpg',
+    label: 'Tracer Ital',
+    url: 'https://www.instagram.com/tracerital',
+    pos: [40, 6],
+    glyph: 'jpg'
+  },
+  {
+    id: 'traystation',
+    file: 'traystation.jpg',
+    label: 'TrayStation',
+    url: 'https://www.instagram.com/traystation.jpg',
+    pos: [50, -6],
+    glyph: 'jpg'
+  }
+  // { id:'roadtrip', file:'AM_FM.exe', label:'AM/FM', url:'', pos:[-24,-34], glyph:'exe' },
+];
+
+/* ---------------- Day/night cycle ----------------
+   t ∈ [0,1). t=0 noon · 0.25 sunset · 0.5 midnight · 0.75 sunrise.
+   The site boots at canonical high noon — the frozen image —
+   then it starts to move.                                        */
+const DAY_LENGTH = 300;           // seconds for a full day
+let cycleT = 0.0;                 // start at noon
+
+const KEYS = [
+// t     skyTop     horizon    lightCol   int   hemiSky    hemiGnd    hInt  stars cloud
+  [0.00, 0x2E6FD6, 0xB8E2F5, 0xFFF6D8, 1.15, 0x9CC8F0, 0x4A7A30, 0.60, 0.0, 0xFFFFFF],
+  [0.14, 0x3A6FC0, 0xEFD9A6, 0xFFE3AE, 1.00, 0x9CB8E0, 0x4A7028, 0.52, 0.0, 0xFDF7EC],
+  [0.21, 0x3A4E86, 0xF09858, 0xFFA050, 0.72, 0x8090B8, 0x3E5A24, 0.42, 0.05,0xF4E6D8],
+  [0.27, 0x1A2450, 0xC06070, 0xE87848, 0.30, 0x505E90, 0x2E4020, 0.30, 0.35,0xBEB8C2],
+  [0.33, 0x0A1030, 0x1E2A58, 0xA8BCE8, 0.22, 0x2A3860, 0x1A2818, 0.20, 1.0, 0x4C5464],
+  [0.50, 0x060A20, 0x131E42, 0xA0B4E0, 0.20, 0x222E52, 0x161F14, 0.18, 1.0, 0x444C5C],
+  [0.67, 0x0A1030, 0x1E2A58, 0xA8BCE8, 0.22, 0x2A3860, 0x1A2818, 0.20, 1.0, 0x4C5464],
+  [0.73, 0x1E2854, 0xC87888, 0xF08858, 0.32, 0x566294, 0x2E4020, 0.30, 0.35,0xC2BCC4],
+  [0.79, 0x3A5A9A, 0xF0B070, 0xFFD09A, 0.75, 0x8AA4D0, 0x3E5E24, 0.44, 0.05,0xF6EADC],
+  [0.88, 0x3468C4, 0xD8E8F4, 0xFFF0C8, 1.05, 0x98C2EC, 0x487628, 0.56, 0.0, 0xFDFAF4],
+  [1.00, 0x2E6FD6, 0xB8E2F5, 0xFFF6D8, 1.15, 0x9CC8F0, 0x4A7A30, 0.60, 0.0, 0xFFFFFF],
+];
+
+const _cA = new THREE.Color(), _cB = new THREE.Color();
+function lerpHex(a, b, f, target){
+  _cA.setHex(a); _cB.setHex(b);
+  target.copy(_cA).lerp(_cB, f);
+  return target;
+}
+function cycleState(t){
+  let i = 0;
+  while (i < KEYS.length - 1 && KEYS[i+1][0] < t) i++;
+  const A = KEYS[i], B = KEYS[Math.min(i+1, KEYS.length-1)];
+  const span = (B[0] - A[0]) || 1;
+  const f = Math.min(1, Math.max(0, (t - A[0]) / span));
+  return {
+    skyTop:  lerpHex(A[1], B[1], f, new THREE.Color()),
+    horizon: lerpHex(A[2], B[2], f, new THREE.Color()),
+    lightCol:lerpHex(A[3], B[3], f, new THREE.Color()),
+    lightInt: A[4] + (B[4]-A[4])*f,
+    hemiSky: lerpHex(A[5], B[5], f, new THREE.Color()),
+    hemiGnd: lerpHex(A[6], B[6], f, new THREE.Color()),
+    hemiInt:  A[7] + (B[7]-A[7])*f,
+    stars:    A[8] + (B[8]-A[8])*f,
+    cloud:   lerpHex(A[9], B[9], f, new THREE.Color()),
+  };
+}
+
+/* ---------------- Terrain ---------------- */
+function g(u){ return Math.exp(-u*u); }
+function terrainHeight(x, z){
+  let h = 0;
+  h += 11.0 * g((x+42)/46) * g((z+58)/58);      // the hill — Bliss's hill
+  h +=  4.5 * g((x-64)/52) * g((z+14)/64);      // supporting swell, right
+  h +=  3.0 * g((x+10)/70) * g((z-70)/60);      // rise behind the spawn
+  h +=  1.1 * Math.sin(x*0.045) * Math.cos(z*0.052);
+  h +=  0.5 * Math.sin(x*0.11 + 1.7) * Math.sin(z*0.09);
+  return h;
+}
+
+/* ---------------- Scene setup ---------------- */
+const canvas   = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+
+const scene  = new THREE.Scene();
+scene.fog = new THREE.Fog(0xB8E2F5, 70, 380);
+
+const camera = new THREE.PerspectiveCamera(62, innerWidth/innerHeight, 0.1, 900);
+
+/* Sky dome */
+const skyUniforms = {
+  topColor:    { value: new THREE.Color(0x2E6FD6) },
+  bottomColor: { value: new THREE.Color(0xB8E2F5) },
+};
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(440, 32, 18),
+  new THREE.ShaderMaterial({
+    uniforms: skyUniforms,
+    side: THREE.BackSide,
+    depthWrite: false,
+    vertexShader: `
+      varying vec3 vPos;
+      void main(){ vPos = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader: `
+      uniform vec3 topColor; uniform vec3 bottomColor; varying vec3 vPos;
+      void main(){
+        float h = normalize(vPos).y;
+        float f = pow(max(h, 0.0), 0.55);
+        gl_FragColor = vec4(mix(bottomColor, topColor, f), 1.0); }`
+  })
+);
+sky.renderOrder = -3;
+scene.add(sky);
+
+/* Lights */
+const sunLight = new THREE.DirectionalLight(0xFFF6D8, 1.15);
+scene.add(sunLight);
+const hemi = new THREE.HemisphereLight(0x9CC8F0, 0x4A7A30, 0.6);
+scene.add(hemi);
+
+/* Terrain mesh with Bliss vertex-colour grass */
+(function buildTerrain(){
+  const SIZE = 480, SEG = 150;
+  const geo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+  geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const lo = new THREE.Color(0x4E7E22);   // valley shadow green
+  const hi = new THREE.Color(0x8FC93F);   // sunlit crest green
+  const c  = new THREE.Color();
+  for (let i = 0; i < pos.count; i++){
+    const x = pos.getX(i), z = pos.getZ(i);
+    const h = terrainHeight(x, z);
+    pos.setY(i, h);
+    const f = Math.min(1, Math.max(0, (h + 0.8) / 11.5));
+    c.copy(lo).lerp(hi, Math.pow(f, 0.8));
+    // faint patchiness so the green isn't airbrushed
+    const n = 0.94 + 0.06 * Math.sin(x*0.9 + z*1.3) * Math.sin(x*0.31 - z*0.77);
+    colors[i*3] = c.r*n; colors[i*3+1] = c.g*n; colors[i*3+2] = c.b*n;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+  const mat = new THREE.MeshLambertMaterial({vertexColors:true});
+  scene.add(new THREE.Mesh(geo, mat));
+})();
+
+/* Sun & moon sprites.
+   Soft-alpha textures are generated as raw pixel data, not canvas —
+   iOS canvas premultiplies alpha and the un-premultiply pass turns
+   low-alpha gradients into rainbow speckle. DataTexture avoids it. */
+function discTexture(r, g, b, plateau){
+  plateau = plateau === undefined ? 0.4 : plateau;
+  const S = 128, data = new Uint8Array(S*S*4);
+  for (let y = 0; y < S; y++){
+    for (let x = 0; x < S; x++){
+      const dx = (x-63.5)/63.5, dy = (y-63.5)/63.5;
+      const d = Math.hypot(dx, dy);
+      let a = d <= plateau ? 1 : Math.max(0, 1-(d-plateau)/(1-plateau));
+      a = Math.pow(a, 1.7);
+      const i = (y*S+x)*4;
+      data[i]=r; data[i+1]=g; data[i+2]=b; data[i+3]=Math.round(a*255);
+    }
+  }
+  const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
+  t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearFilter;
+  t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+}
+const sunSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: discTexture(255, 250, 225),
+  transparent:true, depthWrite:false }));
+sunSprite.scale.set(60,60,1); sunSprite.renderOrder = -1; scene.add(sunSprite);
+
+const moonSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: discTexture(228, 236, 255, 0.35),
+  transparent:true, depthWrite:false }));
+moonSprite.scale.set(34,34,1); moonSprite.renderOrder = -1; scene.add(moonSprite);
+
+/* Stars */
+const starMat = new THREE.PointsMaterial({color:0xEAF0FF, size:1.5,
+  transparent:true, opacity:0, depthWrite:false, sizeAttenuation:false});
+const starMatBright = new THREE.PointsMaterial({color:0xF6F9FF, size:2.9,
+  transparent:true, opacity:0, depthWrite:false, sizeAttenuation:false});
+(function buildStars(){
+  const N = 750, arr = new Float32Array(N*3);
+  for (let i=0;i<N;i++){
+    const az = Math.random()*Math.PI*2;
+    const el = Math.acos(Math.random()*0.92);   // bias upward
+    const r = 420;
+    arr[i*3]   = r*Math.sin(el)*Math.cos(az);
+    arr[i*3+1] = r*Math.cos(el) + 6;
+    arr[i*3+2] = r*Math.sin(el)*Math.sin(az);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(arr,3));
+  const starPts = new THREE.Points(geo, starMat);
+  starPts.renderOrder = -2;
+  scene.add(starPts);
+
+  /* The Hourglass — an invented constellation. The machine dreams
+     in its own iconography: the XP wait cursor, written in stars. */
+  const HG = [ [0,1],[1,1],[-1,1], [0,-1],[1,-1],[-1,-1], [0,0] ];
+  const az = 2.3, el = 0.62, r2 = 415, sc = 0.055;
+  const hgArr = new Float32Array(HG.length*3);
+  const fwd = new THREE.Vector3(Math.cos(az)*Math.cos(el), Math.sin(el),
+                                Math.sin(az)*Math.cos(el));
+  const right = new THREE.Vector3(-Math.sin(az), 0, Math.cos(az));
+  const up = new THREE.Vector3().crossVectors(right, fwd).normalize();
+  HG.forEach((p, i) => {
+    const jx = (Math.sin(i*7.3)*0.1), jy = (Math.cos(i*5.1)*0.08);
+    const v = fwd.clone()
+      .addScaledVector(right, (p[0]+jx)*sc)
+      .addScaledVector(up,    (p[1]+jy)*sc*1.4)
+      .normalize().multiplyScalar(r2);
+    hgArr[i*3] = v.x; hgArr[i*3+1] = v.y; hgArr[i*3+2] = v.z;
+  });
+  const hgGeo = new THREE.BufferGeometry();
+  hgGeo.setAttribute('position', new THREE.BufferAttribute(hgArr,3));
+  const hgPts = new THREE.Points(hgGeo, starMatBright);
+  hgPts.renderOrder = -2;
+  scene.add(hgPts);
+})();
+
+/* Clouds — soft billboards drifting over the valley */
+const cloudMats = [];
+const clouds = [];
+(function buildClouds(){
+  const W = 256, H = 128;
+  const data = new Uint8Array(W*H*4);
+  const blobs = [                       // cx, cy, rx, ry, amp
+    [128, 72, 95, 42, 0.95], [75, 80, 55, 30, 0.9],
+    [185, 82, 58, 28, 0.9],  [120, 55, 50, 26, 0.85],
+  ];
+  for (let y = 0; y < H; y++){
+    for (let x = 0; x < W; x++){
+      let a = 0;
+      for (const [cx, cy, rx, ry, amp] of blobs){
+        const q = Math.pow((x-cx)/rx, 2) + Math.pow((y-cy)/ry, 2);
+        a += amp * Math.exp(-q * 2.4);
+      }
+      a = Math.min(0.94, a);
+      const i = (y*W+x)*4;
+      data[i]=255; data[i+1]=255; data[i+2]=255;
+      data[i+3]=Math.round(a*255);
+    }
+  }
+  const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false; tex.needsUpdate = true;
+  for (let i=0;i<9;i++){
+    const m = new THREE.SpriteMaterial({map:tex, transparent:true,
+      opacity:0.88, depthWrite:false});
+    cloudMats.push(m);
+    const s = new THREE.Sprite(m);
+    const w = 55 + Math.random()*70;
+    s.scale.set(w, w*0.42, 1);
+    s.position.set((Math.random()-0.5)*560, 62+Math.random()*38, (Math.random()-0.5)*560);
+    s.userData.speed = 0.55 + Math.random()*0.5;
+    scene.add(s);
+    clouds.push(s);
+  }
+})();
+
+/* ---------------- Horizon flare ----------------
+   A brief bloom where the sun crosses the horizon — light bending
+   through the thick edge of the atmosphere.                        */
+const flareSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: discTexture(255, 236, 190, 0.2),
+  transparent:true, depthWrite:false, opacity:0 }));
+flareSprite.scale.set(190, 46, 1);
+scene.add(flareSprite);
+
+/* ---------------- Weather machine ----------------
+   CLEAR → (sometimes) RAIN → (sometimes) STORM → CLEAR.
+   wind is its own slow animal underneath everything.               */
+const weather = { wind:0.12, windTarget:0.15, rain:0, rainTarget:0,
+                  state:'CLEAR', timer: 40 + Math.random()*50,
+                  bolt:0, boltTimer:0 };
+
+function weatherStep(dt){
+  weather.timer -= dt;
+  if (weather.timer <= 0){
+    if (weather.state === 'CLEAR'){
+      if (Math.random() < 0.55){
+        weather.state = 'RAIN'; weather.rainTarget = 0.45 + Math.random()*0.3;
+        weather.windTarget = Math.max(weather.windTarget, 0.45);
+        weather.timer = 35 + Math.random()*35;
+      } else { weather.timer = 30 + Math.random()*45; }
+    } else if (weather.state === 'RAIN'){
+      if (Math.random() < 0.4){
+        weather.state = 'STORM'; weather.rainTarget = 0.95;
+        weather.windTarget = 0.85;
+        weather.timer = 22 + Math.random()*22;
+        weather.boltTimer = 2 + Math.random()*4;
+      } else {
+        weather.state = 'CLEAR'; weather.rainTarget = 0;
+        weather.windTarget = 0.1 + Math.random()*0.25;
+        weather.timer = 50 + Math.random()*70;
+      }
+    } else { /* STORM */
+      weather.state = 'RAIN'; weather.rainTarget = 0.35;
+      weather.windTarget = 0.4;
+      weather.timer = 15 + Math.random()*20;
+    }
+  }
+  /* wind wanders on its own during clear spells */
+  if (weather.state === 'CLEAR' && Math.random() < dt/14)
+    weather.windTarget = 0.06 + Math.random()*0.5;
+
+  weather.rain += (weather.rainTarget - weather.rain) * Math.min(1, dt/6);
+  weather.wind += (weather.windTarget - weather.wind) * Math.min(1, dt/8);
+
+  /* lightning */
+  if (weather.state === 'STORM'){
+    weather.boltTimer -= dt;
+    if (weather.boltTimer <= 0){
+      weather.bolt = 0.85;
+      flashEl.style.opacity = reduceMotion ? 0.15 : 0.38;
+      setTimeout(() => flashEl.style.opacity = 0, 70);
+      audio.thunder(1400 + Math.random()*3200);
+      weather.boltTimer = 4 + Math.random()*9;
+    }
+  }
+  weather.bolt = Math.max(0, weather.bolt - dt*6);
+}
+const flashEl = document.getElementById('flash');
+
+/* ---------------- Rain ---------------- */
+const RAIN_N = 850;
+const rainData = [];
+const rainGeoArr = new Float32Array(RAIN_N * 6);
+const rainGeo = new THREE.BufferGeometry();
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainGeoArr, 3));
+const rainMat = new THREE.LineBasicMaterial({color:0xAEC8E4, transparent:true,
+  opacity:0, depthWrite:false});
+const rainMesh = new THREE.LineSegments(rainGeo, rainMat);
+rainMesh.frustumCulled = false;   // positions move with the camera every frame
+rainMesh.renderOrder = 3;
+scene.add(rainMesh);
+for (let i = 0; i < RAIN_N; i++){
+  rainData.push({ x:(Math.random()-0.5)*50, y:Math.random()*30,
+                  z:(Math.random()-0.5)*50, spd: 26 + Math.random()*14 });
+}
+function rainStep(dt){
+  rainMat.opacity = weather.rain * 0.55;
+  if (weather.rain < 0.02) return;
+  const tilt = weather.wind * 0.4;
+  for (let i = 0; i < RAIN_N; i++){
+    const d = rainData[i];
+    d.y -= d.spd * dt;
+    d.x += weather.wind * 6 * dt;
+    if (d.y < 0){ d.y += 30; }
+    if (d.x > 25) d.x -= 50;
+    const wx = camera.position.x + d.x, wy = camera.position.y - 4 + d.y,
+          wz = camera.position.z + d.z;
+    rainGeoArr[i*6]   = wx;        rainGeoArr[i*6+1] = wy;
+    rainGeoArr[i*6+2] = wz;
+    rainGeoArr[i*6+3] = wx - tilt; rainGeoArr[i*6+4] = wy - 0.6;
+    rainGeoArr[i*6+5] = wz;
+  }
+  rainGeo.attributes.position.needsUpdate = true;
+}
+
+/* ---------------- Shooting stars ---------------- */
+const meteors = [];
+(function buildMeteors(){
+  const W = 128, H = 12;
+  const data = new Uint8Array(W*H*4);
+  for (let y = 0; y < H; y++){
+    for (let x = 0; x < W; x++){
+      const tail = Math.pow(x / (W-1), 2.0);
+      const edge = Math.exp(-Math.pow((y-5.5)/3.4, 2));
+      const i = (y*W+x)*4;
+      data[i]=248; data[i+1]=246; data[i+2]=255;
+      data[i+3]=Math.round(Math.min(1, tail*edge)*255);
+    }
+  }
+  const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter;
+  tex.generateMipmaps = false; tex.needsUpdate = true;
+  for (let i = 0; i < 3; i++){
+    const m = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,
+      transparent:true, opacity:0, depthWrite:false}));
+    m.scale.set(22, 1.6, 1);
+    m.renderOrder = -2;
+    m.userData = {active:false, life:0, vel:new THREE.Vector3()};
+    scene.add(m); meteors.push(m);
+  }
+})();
+let meteorTimer = 8 + Math.random()*20;
+function meteorStep(dt){
+  const nightOk = starMat.opacity > 0.6 && weather.rain < 0.25;
+  meteorTimer -= dt;
+  if (meteorTimer <= 0){
+    meteorTimer = 14 + Math.random()*26;
+    if (nightOk){
+      const m = meteors.find(x => !x.userData.active);
+      if (m){
+        const az = Math.random()*Math.PI*2, el = 0.45 + Math.random()*0.5;
+        m.position.set(Math.cos(az)*Math.cos(el)*400,
+                       Math.sin(el)*400, Math.sin(az)*Math.cos(el)*400);
+        const dir = new THREE.Vector3(Math.random()-0.5, -0.35-Math.random()*0.3,
+                                      Math.random()-0.5).normalize();
+        m.userData.vel.copy(dir).multiplyScalar(170 + Math.random()*80);
+        m.userData.life = 0; m.userData.active = true;
+        m.material.rotation = Math.atan2(-dir.y, dir.x);
+      }
+    }
+  }
+  for (const m of meteors){
+    if (!m.userData.active) continue;
+    m.userData.life += dt;
+    const p = m.userData.life / 0.9;
+    if (p >= 1){ m.userData.active = false; m.material.opacity = 0; continue; }
+    m.position.addScaledVector(m.userData.vel, dt);
+    m.material.opacity = Math.sin(p * Math.PI) * 0.9;
+  }
+}
+
+/* ---------------- Sound ----------------
+   Procedural, no files. Wind is filtered noise breathing with the
+   weather; rain is bright noise; thunder arrives late, like it should. */
+const audio = (function(){
+  let ctx = null, master, windGain, windFilter, rainGain, muted = true;
+  let windBuf, rainBuf, fxBuf;
+  function makeNoise(seconds){
+    const len = Math.floor(ctx.sampleRate * seconds);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random()*2 - 1;
+    return buf;
+  }
+  function init(){
+    if (ctx){ ctx.resume(); return; }
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume();
+    master = ctx.createGain(); master.gain.value = 0;
+    const masterLP = ctx.createBiquadFilter();
+    masterLP.type = 'lowpass'; masterLP.frequency.value = 6800; masterLP.Q.value = 0.2;
+    master.connect(masterLP); masterLP.connect(ctx.destination);
+    /* independent buffers — a shared loop comb-filters against itself
+       and reads as a drone. Longer loops hide the loop period too. */
+    windBuf = makeNoise(5); rainBuf = makeNoise(4); fxBuf = makeNoise(3);
+    /* wind */
+    const ws = ctx.createBufferSource(); ws.buffer = windBuf; ws.loop = true;
+    windFilter = ctx.createBiquadFilter(); windFilter.type = 'lowpass';
+    windFilter.frequency.value = 380; windFilter.Q.value = 0.3;
+    windGain = ctx.createGain(); windGain.gain.value = 0;
+    ws.connect(windFilter); windFilter.connect(windGain); windGain.connect(master);
+    ws.start();
+    /* rain */
+    const rs = ctx.createBufferSource(); rs.buffer = rainBuf; rs.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1050;
+    const rlp = ctx.createBiquadFilter(); rlp.type = 'lowpass'; rlp.frequency.value = 4800;
+    rainGain = ctx.createGain(); rainGain.gain.value = 0;
+    rs.connect(hp); hp.connect(rlp); rlp.connect(rainGain); rainGain.connect(master);
+    rs.start();
+    setMuted(false);
+  }
+  function setMuted(m){
+    muted = m;
+    if (ctx){
+      if (!m) ctx.resume();
+      master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.3);
+    }
+    sndBtn.textContent = m ? '🔇' : '🔊';
+  }
+  /* An original welcome chime — warm, rising, gone in three seconds.
+     Reminiscent of booting up somewhere familiar, without being it. */
+  function startup(){
+    if (!ctx || muted) return;
+    const t0 = ctx.currentTime + 0.05;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 0.4;
+    const bus = ctx.createGain(); bus.gain.value = 0.5;
+    lp.connect(bus); bus.connect(master);
+    function note(freq, start, dur, vol, type){
+      const o = ctx.createOscillator(); o.type = type || 'sine';
+      o.frequency.value = freq;
+      const o2 = ctx.createOscillator(); o2.type = 'sine';
+      o2.frequency.value = freq * 1.003;           // gentle chorus
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0 + start);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + start + 0.09);
+      g.gain.exponentialRampToValueAtTime(0.0004, t0 + start + dur);
+      o.connect(g); o2.connect(g); g.connect(lp);
+      o.start(t0 + start); o.stop(t0 + start + dur + 0.1);
+      o2.start(t0 + start); o2.stop(t0 + start + dur + 0.1);
+    }
+    note(164.81, 0.00, 3.0, 0.10, 'triangle');   // E3 pad underneath
+    note(329.63, 0.00, 2.6, 0.16);               // E4
+    note(493.88, 0.14, 2.4, 0.14);               // B4
+    note(659.25, 0.30, 2.2, 0.12);               // E5
+    note(830.61, 0.48, 2.0, 0.09);               // G#5 shimmer
+  }
+  function update(time){
+    if (!ctx || muted) return;
+    const gust = 0.75 + 0.15*Math.sin(time*0.61) + 0.1*Math.sin(time*1.37+2);
+    windGain.gain.setTargetAtTime((0.006 + weather.wind*0.105) * gust,
+      ctx.currentTime, 0.4);
+    windFilter.frequency.setTargetAtTime(240 + weather.wind*520,
+      ctx.currentTime, 0.6);
+    rainGain.gain.setTargetAtTime(weather.rain*0.115, ctx.currentTime, 0.8);
+  }
+  /* a soft grass crunch per stride */
+  function step(){
+    if (!ctx || muted) return;
+    const t0 = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = fxBuf;
+    src.start(t0, Math.random() * 2.5, 0.09);
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.value = 620 + Math.random()*520; bp.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.055 + Math.random()*0.02, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0003, t0 + 0.085);
+    src.connect(bp); bp.connect(g); g.connect(master);
+  }
+  function thunder(delayMs){
+    if (!ctx || muted) return;
+    setTimeout(() => {
+      if (!ctx || muted) return;
+      const t0 = ctx.currentTime;
+      const src = ctx.createBufferSource(); src.buffer = fxBuf;
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(420, t0);
+      lp.frequency.exponentialRampToValueAtTime(65, t0 + 2.4);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.62, t0 + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.0008, t0 + 2.9);
+      src.connect(lp); lp.connect(g); g.connect(master);
+      src.start(t0); src.stop(t0 + 3);
+    }, delayMs);
+  }
+  function unlock(){
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+  return { init, setMuted, update, thunder, startup, step, unlock,
+           isMuted: () => muted };
+})();
+const sndBtn = document.getElementById('sndBtn');
+sndBtn.onclick = e => {
+  e.stopPropagation();
+  audio.init();
+  audio.setMuted(!audio.isMuted());
+};
+addEventListener('click', function once(){ audio.init();
+  removeEventListener('click', once); });
+addEventListener('keydown', function onceK(){ audio.init();
+  removeEventListener('keydown', onceK); });
+
+/* ---------------- Desktop icons ---------------- */
+function drawIconTexture(exp){
+  const cv = document.createElement('canvas'); cv.width=256; cv.height=300;
+  const ctx = cv.getContext('2d');
+
+  // icon plate — XP-style rounded square
+  const px = 58, py = 14, pw = 140, ph = 140, r = 20;
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(px+r,py); ctx.arcTo(px+pw,py,px+pw,py+ph,r);
+  ctx.arcTo(px+pw,py+ph,px,py+ph,r); ctx.arcTo(px,py+ph,px,py,r);
+  ctx.arcTo(px,py,px+pw,py,r); ctx.closePath();
+  const grd = ctx.createLinearGradient(px,py,px+pw,py+ph);
+  grd.addColorStop(0,'#6FA8F0'); grd.addColorStop(1,'#1E4FB8');
+  ctx.fillStyle = grd; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.clip();
+
+  if (exp.glyph === 'sea'){
+    // little seaside: sky band, sea band, sun
+    ctx.fillStyle = '#9CD8F5'; ctx.fillRect(px,py,pw,ph*0.55);
+    ctx.fillStyle = '#2E6FA8'; ctx.fillRect(px,py+ph*0.55,pw,ph*0.45);
+    ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 3;
+    for (let i=0;i<3;i++){
+      ctx.beginPath();
+      const y = py+ph*0.62 + i*16;
+      for (let x=0;x<=pw;x+=8)
+        ctx.lineTo(px+x, y + Math.sin(x*0.5+i)*2.5);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#FFE9A8';
+    ctx.beginPath(); ctx.arc(px+pw*0.72, py+ph*0.3, 15, 0, 7); ctx.fill();
+  } else if (exp.glyph === 'jpg'){
+    // XP picture file: white sheet, dog-ear, tiny landscape thumbnail
+    ctx.fillStyle = '#FDFDFB';
+    ctx.fillRect(px+24, py+16, pw-48, ph-32);
+    ctx.strokeStyle = '#9AA4B0'; ctx.lineWidth = 2;
+    ctx.strokeRect(px+24, py+16, pw-48, ph-32);
+    ctx.fillStyle = '#C8D0DA';
+    ctx.beginPath();
+    ctx.moveTo(px+pw-24, py+16); ctx.lineTo(px+pw-42, py+16);
+    ctx.lineTo(px+pw-24, py+34); ctx.closePath(); ctx.fill();
+    // thumbnail: sky, hill, sun — the wallpaper inside the wallpaper
+    ctx.fillStyle = '#8EC8EE'; ctx.fillRect(px+34, py+34, pw-68, 42);
+    ctx.fillStyle = '#6FA83A';
+    ctx.beginPath();
+    ctx.moveTo(px+34, py+76);
+    ctx.quadraticCurveTo(px+pw*0.4, py+52, px+pw-34, py+76);
+    ctx.lineTo(px+pw-34, py+94); ctx.lineTo(px+34, py+94);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#FFE9A8';
+    ctx.beginPath(); ctx.arc(px+pw-52, py+46, 8, 0, 7); ctx.fill();
+  } else if (exp.glyph === 'zip'){
+    // manila folder with a zipper down the middle
+    ctx.fillStyle = '#E8C05A';
+    ctx.beginPath();
+    ctx.moveTo(px+22, py+40); ctx.lineTo(px+58, py+40);
+    ctx.lineTo(px+68, py+30); ctx.lineTo(px+pw-22, py+30);
+    ctx.lineTo(px+pw-22, py+ph-28); ctx.lineTo(px+22, py+ph-28);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#B8912E'; ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.strokeStyle = '#8A6A1E'; ctx.lineWidth = 3;
+    const zx = px + pw/2;
+    ctx.beginPath(); ctx.moveTo(zx, py+34); ctx.lineTo(zx, py+ph-32); ctx.stroke();
+    for (let y = py+40; y < py+ph-34; y += 10){
+      ctx.beginPath(); ctx.moveTo(zx-6, y); ctx.lineTo(zx+6, y+5); ctx.stroke();
+    }
+  } else if (exp.glyph === 'txt'){
+    // notepad sheet: white page, dog-ear, ruled grey lines
+    ctx.fillStyle = '#FDFDFB';
+    ctx.fillRect(px+30, py+14, pw-60, ph-28);
+    ctx.strokeStyle = '#9AA4B0'; ctx.lineWidth = 2;
+    ctx.strokeRect(px+30, py+14, pw-60, ph-28);
+    ctx.fillStyle = '#C8D0DA';
+    ctx.beginPath();
+    ctx.moveTo(px+pw-30, py+14); ctx.lineTo(px+pw-46, py+14);
+    ctx.lineTo(px+pw-30, py+30); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#B8C2CC'; ctx.lineWidth = 2.5;
+    for (let i = 0; i < 5; i++){
+      ctx.beginPath();
+      ctx.moveTo(px+40, py+40 + i*16);
+      ctx.lineTo(px+pw-40 - (i===4?24:0), py+40 + i*16);
+      ctx.stroke();
+    }
+  } else if (exp.glyph === 'eml'){
+    // envelope: cream body, flap V, stamp corner
+    ctx.fillStyle = '#F6F2E4';
+    ctx.fillRect(px+20, py+34, pw-40, ph-64);
+    ctx.strokeStyle = '#A89E7E'; ctx.lineWidth = 3;
+    ctx.strokeRect(px+20, py+34, pw-40, ph-64);
+    ctx.beginPath();
+    ctx.moveTo(px+20, py+34); ctx.lineTo(px+pw/2, py+ph/2+4);
+    ctx.lineTo(px+pw-20, py+34);
+    ctx.stroke();
+    ctx.fillStyle = '#D46A4A';
+    ctx.fillRect(px+pw-42, py+40, 16, 12);
+  } else {
+    // generic .exe window glyph
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.fillRect(px+28, py+34, pw-56, ph-64);
+    ctx.fillStyle = '#2E5FC4';
+    ctx.fillRect(px+28, py+34, pw-56, 18);
+    ctx.fillStyle = '#C8D8F0';
+    ctx.fillRect(px+36, py+62, pw-72, 8);
+    ctx.fillRect(px+36, py+78, pw-92, 8);
+  }
+  ctx.restore();
+
+  // shortcut arrow badge, bottom-left of plate
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(px+4, py+ph-26, 24, 22);
+  ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(px+4, py+ph-26, 24, 22);
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.moveTo(px+10, py+ph-9); ctx.lineTo(px+22, py+ph-21);
+  ctx.lineTo(px+22, py+ph-13); ctx.lineTo(px+10, py+ph-9);
+  ctx.fill();
+
+  // label — white Tahoma with the classic soft shadow
+  const fpx = exp.file.length > 12 ? 24 : 30;
+  ctx.font = '700 ' + fpx + 'px Tahoma, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.fillText(exp.file, 130, 216);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(exp.file, 128, 214);
+
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 4;
+  return tex;
+}
+
+const icons = [];
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+DESKTOP_EXPERIENCES.forEach(exp => {
+  const [x, z] = exp.pos;
+  const groundY = terrainHeight(x, z);
+
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: drawIconTexture(exp), transparent: true, depthWrite: false }));
+  sprite.scale.set(4.6, 5.4, 1);
+  sprite.position.set(x, groundY + 3.1, z);
+  sprite.userData.exp = exp;
+  sprite.userData.baseY = groundY + 3.1;
+  scene.add(sprite);
+
+  // soft contact shadow on the grass
+  const sh = new THREE.Mesh(
+    new THREE.CircleGeometry(1.5, 24),
+    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
+      opacity:0.22, depthWrite:false}));
+  sh.rotation.x = -Math.PI/2;
+  sh.position.set(x, groundY + 0.06, z);
+  scene.add(sh);
+
+  icons.push(sprite);
+});
+
+/* ---------------- Player / controls ---------------- */
+const EYE = 2.0;
+const player = { x: 2, z: 46, yaw: 0.4, pitch: -0.02 };  // facing the hill
+const keys = {};
+let dragging = false, lastPX = 0, lastPY = 0, dragDist = 0;
+let joyVec = {x:0, y:0};
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
+
+canvas.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch' && e.clientX < innerWidth*0.4 &&
+      e.clientY > innerHeight*0.5) return;   // joystick zone
+  dragging = true; dragDist = 0;
+  lastPX = e.clientX; lastPY = e.clientY;
+  canvas.classList.add('dragging');
+  canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - lastPX, dy = e.clientY - lastPY;
+  dragDist += Math.abs(dx) + Math.abs(dy);
+  lastPX = e.clientX; lastPY = e.clientY;
+  player.yaw   -= dx * 0.0042;
+  player.pitch -= dy * 0.0036;
+  player.pitch = Math.max(-1.2, Math.min(0.9, player.pitch));
+});
+canvas.addEventListener('pointerup', e => {
+  canvas.classList.remove('dragging');
+  if (dragging && dragDist < 7) handleClick(e.clientX, e.clientY);
+  dragging = false;
+});
+
+/* Mobile joystick */
+const stick = document.getElementById('stick');
+const nub = stick.querySelector('.nub');
+let joyId = null;
+if ('ontouchstart' in window) document.body.classList.add('touch');
+stick.addEventListener('touchstart', e => {
+  joyId = e.changedTouches[0].identifier; e.preventDefault();
+}, {passive:false});
+addEventListener('touchmove', e => {
+  for (const t of e.changedTouches){
+    if (t.identifier !== joyId) continue;
+    const r = stick.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    let vx = (t.clientX - cx)/(r.width/2), vy = (t.clientY - cy)/(r.height/2);
+    const m = Math.hypot(vx, vy);
+    if (m > 1){ vx/=m; vy/=m; }
+    joyVec.x = vx; joyVec.y = vy;
+    nub.style.transform = `translate(calc(-50% + ${vx*26}px), calc(-50% + ${vy*26}px))`;
+  }
+}, {passive:false});
+addEventListener('touchend', e => {
+  for (const t of e.changedTouches){
+    if (t.identifier === joyId){
+      joyId = null; joyVec.x = joyVec.y = 0;
+      nub.style.transform = 'translate(-50%,-50%)';
+    }
+  }
+});
+addEventListener('touchcancel', () => {
+  joyId = null; joyVec.x = joyVec.y = 0;
+  nub.style.transform = 'translate(-50%,-50%)';
+});
+canvas.addEventListener('pointercancel', () => {
+  dragging = false; canvas.classList.remove('dragging');
+});
+
+/* ---------------- Icon interaction ---------------- */
+const promptEl = document.getElementById('prompt');
+let hoveredIcon = null;
+
+function handleClick(cx, cy){
+  pointer.x = (cx / innerWidth) * 2 - 1;
+  pointer.y = -(cy / innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(icons);
+  if (hits.length){
+    const exp = hits[0].object.userData.exp;
+    const d = Math.hypot(player.x - hits[0].object.position.x,
+                         player.z - hits[0].object.position.z);
+    if (d > 26) return;   // too far — walk closer, that's the point
+    openExperience(exp);
+  }
+}
+
+function openExperience(exp){
+  if (exp.action === 'about'){ aboutWin.classList.add('open'); return; }
+  if (exp.action === 'contact'){ contactWin.classList.add('open'); return; }
+  if (exp.url){
+    window.open(exp.url, '_blank');
+  } else {
+    dlgTitle.textContent = exp.file;
+    dlgBody.textContent = 'This program is installed but not yet wired up. ' +
+      'Add its URL to the DESKTOP_EXPERIENCES manifest and it opens from here.';
+    dialog.classList.add('open');
+  }
+}
+const dialog = document.getElementById('dialog');
+const dlgTitle = document.getElementById('dlgTitle');
+const dlgBody = document.getElementById('dlgBody');
+document.getElementById('dlgX').onclick =
+document.getElementById('dlgOk').onclick = () => dialog.classList.remove('open');
+
+/* about + contact windows */
+const aboutWin = document.getElementById('aboutWin');
+const contactWin = document.getElementById('contactWin');
+document.getElementById('aboutX').onclick = () => aboutWin.classList.remove('open');
+document.getElementById('contactX').onclick = () => contactWin.classList.remove('open');
+document.getElementById('cTo').textContent = CONTACT_EMAIL;
+document.getElementById('cSend').onclick = () => {
+  location.href = 'mailto:' + CONTACT_EMAIL + '?subject=' +
+    encodeURIComponent('Booking enquiry');
+};
+document.getElementById('cCopy').onclick = e => {
+  const done = () => {
+    e.target.textContent = 'Copied ✓';
+    setTimeout(() => e.target.textContent = 'Copy address', 1800);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(CONTACT_EMAIL).then(done).catch(done);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = CONTACT_EMAIL; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); done();
+  }
+};
+
+/* ---------------- Start menu ---------------- */
+const startMenu = document.getElementById('startMenu');
+const menuItems = document.getElementById('menuItems');
+document.getElementById('startBtn').onclick = e => {
+  e.stopPropagation();
+  startMenu.classList.toggle('open');
+};
+addEventListener('pointerdown', e => {
+  if (!startMenu.contains(e.target) && e.target.id !== 'startBtn')
+    startMenu.classList.remove('open');
+});
+let turnTarget = null;
+DESKTOP_EXPERIENCES.forEach(exp => {
+  const div = document.createElement('div');
+  div.className = 'item';
+  div.innerHTML = '<span class="ic"></span>' + exp.file;
+  div.onclick = () => {
+    startMenu.classList.remove('open');
+    const [x, z] = exp.pos;
+    turnTarget = Math.atan2(player.x - x, player.z - z); // yaw facing the icon
+  };
+  menuItems.appendChild(div);
+});
+
+/* ---------------- Clock ---------------- */
+const clockEl = document.getElementById('clock');
+function updateClock(){
+  const hours = (12 + cycleT * 24) % 24;
+  const h = Math.floor(hours), m = Math.floor((hours - h) * 60);
+  const h12 = ((h + 11) % 12) + 1;
+  clockEl.textContent = h12 + ':' + String(m).padStart(2,'0') +
+    (h < 12 ? ' AM' : ' PM');
+}
+
+/* ---------------- Boot: click to enter ---------------- */
+const boot = document.getElementById('boot');
+const bootEnter = document.getElementById('bootEnter');
+let bootReady = false, entered = false;
+setTimeout(() => { boot.classList.add('ready'); bootReady = true; }, 1600);
+function enterValley(){
+  if (!bootReady || entered) return;
+  entered = true;
+  audio.init();
+  audio.startup();
+  boot.classList.add('gone');
+  setTimeout(() => document.getElementById('hint').classList.add('gone'), 9000);
+}
+boot.addEventListener('click', enterValley);
+addEventListener('keydown', e => { if (e.key === 'Enter') enterValley(); });
+/* iOS resumes audio only inside touchend/click gestures — keep a net out */
+addEventListener('click', () => audio.unlock());
+addEventListener('touchend', () => audio.unlock());
+
+/* ---------------- Main loop ---------------- */
+const clock3 = new THREE.Clock();
+let bobPhase = 0;
+let stepTimer = 0.2;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock3.getDelta(), 0.05);
+  const time = clock3.elapsedTime;
+
+  /* --- day drift --- */
+  cycleT = (cycleT + dt / DAY_LENGTH) % 1;
+  const st = cycleState(cycleT);
+
+  /* --- weather overrides the sky --- */
+  weatherStep(dt);
+  const rn = weather.rain;
+  const grey = _cA.setHex(0x5E6874);
+  st.skyTop.lerp(grey, rn*0.45);
+  st.horizon.lerp(grey, rn*0.5);
+  st.cloud.lerp(_cB.setHex(0x4A525E), rn*0.7);
+  st.lightInt *= (1 - rn*0.45);
+  st.hemiInt  *= (1 - rn*0.3);
+  st.stars    *= (1 - rn*0.92);
+  scene.fog.near = 70 - rn*38;
+  scene.fog.far  = 380 - rn*195;
+
+  skyUniforms.topColor.value.copy(st.skyTop);
+  skyUniforms.bottomColor.value.copy(st.horizon);
+  scene.fog.color.copy(st.horizon);
+  sunLight.color.copy(st.lightCol);
+  sunLight.intensity = st.lightInt + weather.bolt;
+  if (weather.bolt > 0.1) sunLight.color.lerp(_cA.setHex(0xEAF2FF), 0.5);
+  hemi.color.copy(st.hemiSky);
+  hemi.groundColor.copy(st.hemiGnd);
+  hemi.intensity = st.hemiInt + weather.bolt*0.12;
+  starMat.opacity = st.stars;
+  starMatBright.opacity = Math.min(1, st.stars * 1.15);
+  cloudMats.forEach(m => m.color.copy(st.cloud));
+
+  /* sun & moon on their great circle */
+  const ang = -cycleT * Math.PI * 2 + Math.PI/2;   // t=0 → overhead
+  const R = 380;
+  const sunPos = new THREE.Vector3(
+    Math.cos(ang) * R * 0.62, Math.sin(ang) * R, Math.cos(ang) * R * 0.5);
+  sunSprite.position.set(camera.position.x + sunPos.x,
+                         sunPos.y, camera.position.z + sunPos.z);
+  moonSprite.position.set(camera.position.x - sunPos.x,
+                          -sunPos.y, camera.position.z - sunPos.z);
+  sunSprite.material.opacity = Math.max(0, Math.min(1, (sunPos.y + 40) / 60));
+  moonSprite.material.opacity = Math.max(0, Math.min(1, (-sunPos.y + 20) / 60));
+
+  const sunUp = sunPos.y > -15;
+  const lightFrom = sunUp ? sunPos : sunPos.clone().negate();
+  sunLight.position.copy(lightFrom).normalize().multiplyScalar(100);
+
+  /* --- horizon flare: atmospheric lensing at the crossing --- */
+  const horizDist = Math.hypot(sunPos.x, sunPos.z) || 1;
+  flareSprite.position.set(
+    camera.position.x + (sunPos.x / horizDist) * 400,
+    9,
+    camera.position.z + (sunPos.z / horizDist) * 400);
+  const crossing = Math.exp(-Math.pow(sunPos.y / 26, 2));   // peaks at horizon
+  const flareAmt = crossing * (1 - rn*0.85);
+  flareSprite.material.opacity = flareAmt * 0.9;
+  if (flareAmt > 0.03)
+    skyUniforms.bottomColor.value.lerp(_cB.setHex(0xFFE4B0), flareAmt*0.35);
+
+  /* --- movement --- */
+  const speed = 10.5;
+  let mx = 0, mz = 0;
+  if (keys['w'] || keys['arrowup'])    mz -= 1;
+  if (keys['s'] || keys['arrowdown'])  mz += 1;
+  if (keys['a'] || keys['arrowleft'])  mx -= 1;
+  if (keys['d'] || keys['arrowright']) mx += 1;
+  mx += joyVec.x; mz += joyVec.y;
+  const mlen = Math.hypot(mx, mz);
+  const isMoving = mlen > 0.01;
+  if (isMoving){
+    mx /= Math.max(1, mlen); mz /= Math.max(1, mlen);
+    const sin = Math.sin(player.yaw), cos = Math.cos(player.yaw);
+    player.x += (mx * cos + mz * sin) * speed * dt;
+    player.z += (mz * cos - mx * sin) * speed * dt;
+    // soft boundary
+    const r = Math.hypot(player.x, player.z);
+    if (r > 170){ player.x *= 170/r; player.z *= 170/r; }
+    if (!reduceMotion) bobPhase += dt * 9;
+    stepTimer -= dt;
+    if (stepTimer <= 0){
+      audio.step();
+      stepTimer = 0.40 + Math.random()*0.07;
+    }
+  } else {
+    stepTimer = Math.min(stepTimer, 0.14);
+  }
+
+  /* smooth turn from start-menu wayfinding */
+  if (turnTarget !== null){
+    let diff = turnTarget - player.yaw;
+    while (diff >  Math.PI) diff -= Math.PI*2;
+    while (diff < -Math.PI) diff += Math.PI*2;
+    player.yaw += diff * Math.min(1, dt * 4);
+    if (Math.abs(diff) < 0.02) turnTarget = null;
+  }
+
+  const groundY = terrainHeight(player.x, player.z);
+  const bob = reduceMotion ? 0 : Math.sin(bobPhase) * 0.07;
+  camera.position.set(player.x, groundY + EYE + bob, player.z);
+  camera.rotation.order = 'YXZ';
+  camera.rotation.y = player.yaw;
+  camera.rotation.x = player.pitch;
+  sky.position.copy(camera.position);
+
+  /* --- clouds drift with the wind --- */
+  const cSpeed = 1 + weather.wind * 3.4;
+  for (const c of clouds){
+    c.position.x += c.userData.speed * cSpeed * dt;
+    if (c.position.x > 300) c.position.x = -300;
+  }
+
+  /* --- weather visuals & sound --- */
+  rainStep(dt);
+  meteorStep(dt);
+  audio.update(time);
+
+  /* --- icons: bob + proximity prompt --- */
+  let nearIcon = null;
+  for (const ic of icons){
+    if (!reduceMotion)
+      ic.position.y = ic.userData.baseY + Math.sin(time*1.4 + ic.position.x)*0.16;
+    const d = Math.hypot(player.x - ic.position.x, player.z - ic.position.z);
+    if (d < 22 && (!nearIcon || d < nearIcon.d))
+      nearIcon = {exp: ic.userData.exp, d};
+  }
+  if (nearIcon){
+    promptEl.textContent = 'Open ' + nearIcon.exp.file;
+    promptEl.classList.add('show');
+  } else {
+    promptEl.classList.remove('show');
+  }
+
+  updateClock();
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+
+</body>
+</html>
