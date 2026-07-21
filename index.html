@@ -86,7 +86,7 @@ border-left:1px solid rgba(0,0,0,.3);box-shadow:inset 1px 1px 2px rgba(255,255,2
 
 /* ––––– Start menu ––––– */
 #startMenu{position:fixed;left:0;bottom:32px;width:240px;z-index:29;
-background:#fff;border:1px solid var(–xp-blue-dark);border-radius:6px 6px 0 0;
+background:#fff;border:1px solid var(--xp-blue-dark);border-radius:6px 6px 0 0;
 overflow:hidden;box-shadow:3px -3px 12px rgba(0,0,0,.35);display:none;}
 #startMenu.open{display:block;}
 #startMenu .head{background:linear-gradient(90deg,#1941A5,#3E7DF0);color:#fff;
@@ -96,18 +96,18 @@ opacity:.85;margin-top:2px;}
 #startMenu .items{padding:6px 0;}
 #startMenu .item{display:flex;align-items:center;gap:10px;padding:8px 14px;
 font-size:12px;color:#111;cursor:pointer;}
-#startMenu .item:hover{background:var(–xp-blue);color:#fff;}
+#startMenu .item:hover{background:var(--xp-blue);color:#fff;}
 #startMenu .item .ic{width:22px;height:22px;flex:none;border-radius:3px;
 background:linear-gradient(135deg,#5A93E8,#2456c8);
 box-shadow:inset 0 0 3px rgba(255,255,255,.5);position:relative;}
-#startMenu .item .ic::after{content:””;position:absolute;inset:5px;
+#startMenu .item .ic::after{content:"";position:absolute;inset:5px;
 border:1.5px solid rgba(255,255,255,.85);border-radius:1px;}
 #startMenu .foot{border-top:1px solid #d8d8d8;padding:8px 14px;font-size:10px;color:#777;
 background:#F4F4F0;}
 
 /* ––––– XP dialog ––––– */
 #dialog{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:40;
-width:min(340px,86vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
+width:min(340px,86vw);background:#ECE9D8;border:1px solid var(--xp-blue-dark);
 border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
 #dialog.open{display:block;}
 #dialog .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
@@ -125,7 +125,7 @@ background:linear-gradient(#FDFDFB,#E5E5DE 85%,#CFCFC7);}
 
 /* ––––– XP app windows ––––– */
 .xpwin{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:40;
-width:min(400px,92vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
+width:min(400px,92vw);background:#ECE9D8;border:1px solid var(--xp-blue-dark);
 border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
 .xpwin.open{display:block;}
 .xpwin .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
@@ -137,7 +137,7 @@ background:linear-gradient(#F0A088,#D44E28);color:#fff;font-weight:700;font-size
 cursor:pointer;line-height:1;font-family:inherit;flex:none;}
 .xpwin .menubar{font-size:11px;padding:4px 10px;color:#222;display:flex;gap:14px;
 border-bottom:1px solid #d0cdbd;}
-.xpwin .note{background:#fff;font:12px/1.8 “Lucida Console”,“Courier New”,monospace;
+.xpwin .note{background:#fff;font:12px/1.8 "Lucida Console","Courier New",monospace;
 padding:14px 16px;margin:0 3px 3px;border:1px solid #b8b4a2;
 white-space:pre-wrap;color:#111;-webkit-user-select:text;user-select:text;}
 .xpwin .note a{color:#1941A5;}
@@ -200,7 +200,7 @@ font-family:inherit;line-height:1;padding:2px;}
 <div id="startMenu">
   <div class="head">TrayStation<small>Latent Liminal OS — Home Edition</small></div>
   <div class="items" id="menuItems"></div>
-  <div class="foot">Updates pending — new programs will appear without notice.</div>
+  <div class="foot">Windows could not check for updates automatically.</div>
 </div>
 
 <div id="aboutWin" class="xpwin">
