@@ -86,7 +86,7 @@ border-left:1px solid rgba(0,0,0,.3);box-shadow:inset 1px 1px 2px rgba(255,255,2
 
 /* ––––– Start menu ––––– */
 #startMenu{position:fixed;left:0;bottom:32px;width:240px;z-index:29;
-background:#fff;border:1px solid var(--xp-blue-dark);border-radius:6px 6px 0 0;
+background:#fff;border:1px solid var(–xp-blue-dark);border-radius:6px 6px 0 0;
 overflow:hidden;box-shadow:3px -3px 12px rgba(0,0,0,.35);display:none;}
 #startMenu.open{display:block;}
 #startMenu .head{background:linear-gradient(90deg,#1941A5,#3E7DF0);color:#fff;
@@ -96,18 +96,19 @@ opacity:.85;margin-top:2px;}
 #startMenu .items{padding:6px 0;}
 #startMenu .item{display:flex;align-items:center;gap:10px;padding:8px 14px;
 font-size:12px;color:#111;cursor:pointer;}
-#startMenu .item:hover{background:var(--xp-blue);color:#fff;}
+#startMenu .item:hover{background:var(–xp-blue);color:#fff;}
 #startMenu .item .ic{width:22px;height:22px;flex:none;border-radius:3px;
 background:linear-gradient(135deg,#5A93E8,#2456c8);
 box-shadow:inset 0 0 3px rgba(255,255,255,.5);position:relative;}
-#startMenu .item .ic::after{content:"";position:absolute;inset:5px;
+#startMenu .item .ic::after{content:””;position:absolute;inset:5px;
 border:1.5px solid rgba(255,255,255,.85);border-radius:1px;}
+#startMenu .item img.mic{width:22px;height:22px;flex:none;display:block;}
 #startMenu .foot{border-top:1px solid #d8d8d8;padding:8px 14px;font-size:10px;color:#777;
 background:#F4F4F0;}
 
 /* ––––– XP dialog ––––– */
 #dialog{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:40;
-width:min(340px,86vw);background:#ECE9D8;border:1px solid var(--xp-blue-dark);
+width:min(340px,86vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
 border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
 #dialog.open{display:block;}
 #dialog .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
@@ -125,7 +126,7 @@ background:linear-gradient(#FDFDFB,#E5E5DE 85%,#CFCFC7);}
 
 /* ––––– XP app windows ––––– */
 .xpwin{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:40;
-width:min(400px,92vw);background:#ECE9D8;border:1px solid var(--xp-blue-dark);
+width:min(400px,92vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
 border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
 .xpwin.open{display:block;}
 .xpwin .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
@@ -137,7 +138,7 @@ background:linear-gradient(#F0A088,#D44E28);color:#fff;font-weight:700;font-size
 cursor:pointer;line-height:1;font-family:inherit;flex:none;}
 .xpwin .menubar{font-size:11px;padding:4px 10px;color:#222;display:flex;gap:14px;
 border-bottom:1px solid #d0cdbd;}
-.xpwin .note{background:#fff;font:12px/1.8 "Lucida Console","Courier New",monospace;
+.xpwin .note{background:#fff;font:12px/1.8 “Lucida Console”,“Courier New”,monospace;
 padding:14px 16px;margin:0 3px 3px;border:1px solid #b8b4a2;
 white-space:pre-wrap;color:#111;-webkit-user-select:text;user-select:text;}
 .xpwin .note a{color:#1941A5;}
@@ -254,13 +255,35 @@ LDN • PARIS • LA • NYC</div>
 const CONTACT_EMAIL = 'tracer@nothingbuttalent.co.uk';
 const ADRENALIN_URL = 'https://www.adrenalinphotographic.com/photos/tracer-ital-2/';
 
+/* The broadcast. Files live in /media/. Order = channel number. */
+const TV_CHANNELS = [
+  'skepta_43.mp4',
+  'caradela_43.mp4',
+  'yungblud_43.mp4',
+  'indigoboy_43.mp4',
+  'numero_43.mp4',
+  'daphnegroeneveld_43.mp4',
+  'schon-goldfinger_43.mp4',
+  'shudu-samsung_43.mp4',
+];
+const TV_POS = [4, -32];          // where the television sits in the grass
+
 const DESKTOP_EXPERIENCES = [
+  {
+    id: 'mediaplayer',
+    file: 'MediaPlayer.exe',
+    label: 'Media Player',
+    action: 'tv',
+    pos: TV_POS,          // Start menu points at the television itself
+    hidden: true,         // no world icon — the set is its own signage
+    glyph: 'wmp'
+  },
   {
     id: 'about',
     file: 'about.txt',
     label: 'About',
     action: 'about',
-    pos: [-12, 22],
+    pos: [-34, -30],
     glyph: 'txt'
   },
   {
@@ -268,7 +291,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'contact.eml',
     label: 'Contact',
     action: 'contact',
-    pos: [-3, 10],
+    pos: [-24, -22],
     glyph: 'eml'
   },
   {
@@ -276,7 +299,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'Seafront.exe',
     label: 'Seafront',
     url: 'https://traystation.github.io/seafront/',
-    pos: [16, -20],
+    pos: [30, -16],
     glyph: 'sea'
   },
   {
@@ -711,8 +734,8 @@ function meteorStep(dt){
    Procedural, no files. Wind is filtered noise breathing with the
    weather; rain is bright noise; thunder arrives late, like it should. */
 const audio = (function(){
-  let ctx = null, master, windGain, windFilter, rainGain, muted = true;
-  let windBuf, rainBuf, fxBuf;
+  let ctx = null, master, windGain, windFilter, rainGain, staticGain, muted = true;
+  let windBuf, rainBuf, fxBuf, duck = 0;
   function makeNoise(seconds){
     const len = Math.floor(ctx.sampleRate * seconds);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -745,8 +768,19 @@ const audio = (function(){
     rainGain = ctx.createGain(); rainGain.gain.value = 0;
     rs.connect(hp); hp.connect(rlp); rlp.connect(rainGain); rainGain.connect(master);
     rs.start();
+    /* tv static hiss */
+    const ss = ctx.createBufferSource(); ss.buffer = fxBuf; ss.loop = true;
+    const shp = ctx.createBiquadFilter(); shp.type = 'highpass'; shp.frequency.value = 2400;
+    staticGain = ctx.createGain(); staticGain.gain.value = 0;
+    ss.connect(shp); shp.connect(staticGain); staticGain.connect(master);
+    ss.start();
     setMuted(false);
   }
+  function setStatic(on){
+    if (staticGain && ctx)
+      staticGain.gain.setTargetAtTime(on ? 0.055 : 0, ctx.currentTime, 0.06);
+  }
+  function setDuck(v){ duck = Math.max(0, Math.min(1, v)); }
   function setMuted(m){
     muted = m;
     if (ctx){
@@ -786,11 +820,12 @@ const audio = (function(){
   function update(time){
     if (!ctx || muted) return;
     const gust = 0.75 + 0.15*Math.sin(time*0.61) + 0.1*Math.sin(time*1.37+2);
-    windGain.gain.setTargetAtTime((0.006 + weather.wind*0.105) * gust,
+    windGain.gain.setTargetAtTime((0.006 + weather.wind*0.105) * gust * (1 - duck*0.75),
       ctx.currentTime, 0.4);
     windFilter.frequency.setTargetAtTime(240 + weather.wind*520,
       ctx.currentTime, 0.6);
-    rainGain.gain.setTargetAtTime(weather.rain*0.115, ctx.currentTime, 0.8);
+    rainGain.gain.setTargetAtTime(weather.rain*0.115 * (1 - duck*0.35),
+      ctx.currentTime, 0.8);
   }
   /* a soft grass crunch per stride */
   function step(){
@@ -827,7 +862,7 @@ const audio = (function(){
     if (ctx && ctx.state === 'suspended') ctx.resume();
   }
   return { init, setMuted, update, thunder, startup, step, unlock,
-           isMuted: () => muted };
+           setStatic, setDuck, isMuted: () => muted };
 })();
 const sndBtn = document.getElementById('sndBtn');
 sndBtn.onclick = e => {
@@ -839,6 +874,195 @@ addEventListener('click', function once(){ audio.init();
   removeEventListener('click', once); });
 addEventListener('keydown', function onceK(){ audio.init();
   removeEventListener('keydown', onceK); });
+
+/* ================================================================
+   THE TELEVISION
+   A set abandoned in the grass, broadcasting to nobody.
+   Click: on. Click again: next channel. Static between.
+   ================================================================ */
+const tv = { mode:'off', channel:-1, group:null, screen:null,
+             clickables:[], osdA:0, light:null, led:null, burstTimer:null };
+
+const tvVideo = document.createElement('video');
+tvVideo.loop = true; tvVideo.playsInline = true;
+tvVideo.setAttribute('playsinline',''); tvVideo.preload = 'none';
+const tvTexture = new THREE.VideoTexture(tvVideo);
+tvTexture.minFilter = THREE.LinearFilter; tvTexture.magFilter = THREE.LinearFilter;
+
+/* OSD — green channel number, VCR style */
+const osdCanvas = document.createElement('canvas');
+osdCanvas.width = 128; osdCanvas.height = 64;
+const osdTex = new THREE.CanvasTexture(osdCanvas);
+function setOsd(text){
+  const c = osdCanvas.getContext('2d');
+  c.clearRect(0,0,128,64);
+  c.font = '700 34px "Courier New",monospace';
+  c.fillStyle = '#39FF5A';
+  c.shadowColor = '#0A4014'; c.shadowBlur = 4;
+  c.fillText(text, 8, 44);
+  osdTex.needsUpdate = true;
+  tv.osdA = 1;
+}
+
+const tvScreenMat = new THREE.ShaderMaterial({
+  uniforms: {
+    uMode: { value: 0 },          // 0 off · 1 static · 2 video
+    uTex:  { value: tvTexture },
+    uOsd:  { value: osdTex },
+    uOsdA: { value: 0 },
+    uTime: { value: 0 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main(){ vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform int uMode; uniform sampler2D uTex; uniform sampler2D uOsd;
+    uniform float uOsdA; uniform float uTime;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+    void main(){
+      /* barrel distortion — the glass */
+      vec2 c = vUv*2.0 - 1.0;
+      float r2 = dot(c,c);
+      c *= 1.0 + 0.07*r2;
+      vec2 uv = c*0.5 + 0.5;
+      if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0){
+        gl_FragColor = vec4(0.02, 0.02, 0.025, 1.0); return;
+      }
+      vec3 col;
+      if (uMode == 0){
+        /* off: dead glass, faint sheen up top */
+        col = vec3(0.045, 0.05, 0.055) + vec3(0.05)*pow(1.0-uv.y, 2.0)*0.4;
+      } else if (uMode == 1){
+        /* static */
+        float n = hash(floor(uv*vec2(150.0,112.0)) + floor(uTime*24.0));
+        col = vec3(n*0.85 + 0.05);
+      } else {
+        /* broadcast: chromatic split + rolling bar */
+        float off = 0.0016 + 0.0008*sin(uTime*1.3);
+        col.r = texture2D(uTex, uv + vec2(off,0.0)).r;
+        col.g = texture2D(uTex, uv).g;
+        col.b = texture2D(uTex, uv - vec2(off,0.0)).b;
+        float roll = 0.05*sin(uv.y*6.0 - uTime*0.8);
+        col += roll;
+        float grain = (hash(uv*vec2(90.0) + uTime)*2.0 - 1.0)*0.05;
+        col += grain;
+      }
+      /* scanlines + vignette on everything lit */
+      if (uMode > 0){
+        float sl = 0.86 + 0.14*sin(uv.y*640.0);
+        col *= sl;
+        col *= 1.0 - 0.32*r2;
+        col *= 1.06;   // phosphor lift
+      }
+      /* OSD corner */
+      if (uOsdA > 0.01){
+        vec2 ouv = (uv - vec2(0.05, 0.72)) / vec2(0.4, 0.24);
+        if (ouv.x > 0.0 && ouv.x < 1.0 && ouv.y > 0.0 && ouv.y < 1.0){
+          vec4 o = texture2D(uOsd, vec2(ouv.x, 1.0-ouv.y));
+          col = mix(col, o.rgb, o.a * uOsdA);
+        }
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }`
+});
+
+(function buildTV(){
+  const [tx, tz] = TV_POS;
+  const ty = terrainHeight(tx, tz);
+  const group = new THREE.Group();
+  group.position.set(tx, ty - 0.25, tz);           // sunk into the grass
+  group.rotation.y = Math.atan2(2 - tx, 46 - tz);  // faces the spawn
+  group.rotation.z = 0.035; group.rotation.x = -0.02;
+
+  const plastic = new THREE.MeshLambertMaterial({color:0x3E3E42});
+  const darker  = new THREE.MeshLambertMaterial({color:0x2A2A2E});
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(7.2, 5.6, 5.2), plastic);
+  body.position.y = 2.8;
+  group.add(body);
+
+  /* front bezel plate */
+  const bezel = new THREE.Mesh(new THREE.BoxGeometry(6.9, 5.3, 0.3), darker);
+  bezel.position.set(0, 2.8, 2.65);
+  group.add(bezel);
+
+  /* the tube — 4:3 */
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 4.2), tvScreenMat);
+  screen.position.set(0, 3.0, 2.82);
+  group.add(screen);
+
+  /* control strip + standby LED */
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(6.9, 0.55, 0.1), plastic);
+  strip.position.set(0, 0.62, 2.86);
+  group.add(strip);
+  const led = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.18),
+    new THREE.MeshBasicMaterial({color:0xC03020}));
+  led.position.set(2.9, 0.62, 2.93);
+  group.add(led);
+
+  /* rabbit ears */
+  const earMat = new THREE.MeshLambertMaterial({color:0x8A8A90});
+  const earGeo = new THREE.CylinderGeometry(0.035, 0.05, 4.6, 5);
+  const earL = new THREE.Mesh(earGeo, earMat);
+  earL.position.set(-0.7, 7.6, -0.6); earL.rotation.z = 0.5; earL.rotation.x = -0.15;
+  group.add(earL);
+  const earR = new THREE.Mesh(earGeo, earMat);
+  earR.position.set(0.9, 7.7, -0.6); earR.rotation.z = -0.42; earR.rotation.x = -0.1;
+  group.add(earR);
+
+  /* shadow blob */
+  const sh = new THREE.Mesh(new THREE.CircleGeometry(4.4, 24),
+    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
+      opacity:0.25, depthWrite:false}));
+  sh.rotation.x = -Math.PI/2;
+  sh.position.set(tx, ty + 0.07, tz);
+  scene.add(sh);
+
+  /* screen glow — the TV light on the grass at night */
+  const light = new THREE.PointLight(0x9FB8E8, 0, 26, 2);
+  light.position.set(0, 3.2, 4.5);
+  group.add(light);
+
+  scene.add(group);
+  tv.group = group; tv.screen = screen; tv.light = light; tv.led = led;
+  tv.clickables = [body, screen];
+})();
+
+function tvSetChannel(i){
+  tv.channel = ((i % TV_CHANNELS.length) + TV_CHANNELS.length) % TV_CHANNELS.length;
+  tv.mode = 'static';
+  audio.setStatic(true);
+  if (tv.burstTimer) clearTimeout(tv.burstTimer);
+  tv.burstTimer = setTimeout(() => {
+    tvVideo.src = 'media/' + TV_CHANNELS[tv.channel];
+    tvVideo.muted = audio.isMuted();
+    const p = tvVideo.play();
+    if (p && p.catch) p.catch(() => {});
+  }, 380);
+}
+tvVideo.addEventListener('playing', () => {
+  tv.mode = 'video';
+  audio.setStatic(false);
+  setOsd('CH ' + (tv.channel + 1));
+  tv.led.material.color.setHex(0x35C845);
+});
+tvVideo.addEventListener('error', () => {
+  tv.mode = 'static';
+  setOsd('NO SIGNAL');
+});
+function tvNext(){
+  audio.init();
+  if (tv.mode === 'off') tvSetChannel(0);
+  else tvSetChannel(tv.channel + 1);
+}
+function tvOff(){
+  tv.mode = 'off';
+  tvVideo.pause(); tvVideo.removeAttribute('src'); tvVideo.load();
+  audio.setStatic(false);
+  tv.led.material.color.setHex(0xC03020);
+}
 
 /* ---------------- Desktop icons ---------------- */
 function drawIconTexture(exp){
@@ -908,6 +1132,20 @@ function drawIconTexture(exp){
     for (let y = py+40; y < py+ph-34; y += 10){
       ctx.beginPath(); ctx.moveTo(zx-6, y); ctx.lineTo(zx+6, y+5); ctx.stroke();
     }
+  } else if (exp.glyph === 'wmp'){
+    // media player orb: blue sphere, white play triangle
+    const ocx = px + pw/2, ocy = py + ph/2;
+    const og = ctx.createRadialGradient(ocx-14, ocy-16, 6, ocx, ocy, 52);
+    og.addColorStop(0, '#9CC8F8'); og.addColorStop(0.5, '#3E7DF0');
+    og.addColorStop(1, '#16368C');
+    ctx.fillStyle = og;
+    ctx.beginPath(); ctx.arc(ocx, ocy, 46, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(ocx, ocy, 46, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.moveTo(ocx-13, ocy-19); ctx.lineTo(ocx+21, ocy);
+    ctx.lineTo(ocx-13, ocy+19); ctx.closePath(); ctx.fill();
   } else if (exp.glyph === 'txt'){
     // notepad sheet: white page, dog-ear, ruled grey lines
     ctx.fillStyle = '#FDFDFB';
@@ -979,6 +1217,7 @@ const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 
 DESKTOP_EXPERIENCES.forEach(exp => {
+  if (exp.hidden) return;   // listed in the Start menu, absent from the grass
   const [x, z] = exp.pos;
   const groundY = terrainHeight(x, z);
 
@@ -1080,6 +1319,15 @@ function handleClick(cx, cy){
   pointer.x = (cx / innerWidth) * 2 - 1;
   pointer.y = -(cy / innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
+
+  /* the television takes priority over icons behind it */
+  const tvHits = raycaster.intersectObjects(tv.clickables);
+  if (tvHits.length){
+    const d = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
+    if (d <= 24) tvNext();
+    return;
+  }
+
   const hits = raycaster.intersectObjects(icons);
   if (hits.length){
     const exp = hits[0].object.userData.exp;
@@ -1093,6 +1341,7 @@ function handleClick(cx, cy){
 function openExperience(exp){
   if (exp.action === 'about'){ aboutWin.classList.add('open'); return; }
   if (exp.action === 'contact'){ contactWin.classList.add('open'); return; }
+  if (exp.action === 'tv'){ tvNext(); return; }
   if (exp.url){
     window.open(exp.url, '_blank');
   } else {
@@ -1144,10 +1393,19 @@ addEventListener('pointerdown', e => {
     startMenu.classList.remove('open');
 });
 let turnTarget = null;
+/* menu icons are cropped from the same painter as the world sprites,
+   so they match by construction — including future .exes */
+function menuIconURL(exp){
+  const src = drawIconTexture(exp).image;      // the painter's canvas
+  const m = document.createElement('canvas');
+  m.width = m.height = 44;
+  m.getContext('2d').drawImage(src, 58, 14, 140, 140, 0, 0, 44, 44);
+  return m.toDataURL();
+}
 DESKTOP_EXPERIENCES.forEach(exp => {
   const div = document.createElement('div');
   div.className = 'item';
-  div.innerHTML = '<span class="ic"></span>' + exp.file;
+  div.innerHTML = '<img class="mic" alt="" src="' + menuIconURL(exp) + '">' + exp.file;
   div.onclick = () => {
     startMenu.classList.remove('open');
     const [x, z] = exp.pos;
@@ -1319,7 +1577,37 @@ function animate(){
     if (d < 22 && (!nearIcon || d < nearIcon.d))
       nearIcon = {exp: ic.userData.exp, d};
   }
-  if (nearIcon){
+  /* --- television --- */
+  const tvD = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
+  tvScreenMat.uniforms.uTime.value = time;
+  tvScreenMat.uniforms.uMode.value =
+    tv.mode === 'video' ? 2 : (tv.mode === 'static' ? 1 : 0);
+  if (tv.osdA > 0){
+    tv.osdA = Math.max(0, tv.osdA - dt * 0.45);
+    tvScreenMat.uniforms.uOsdA.value = Math.min(1, tv.osdA * 1.6);
+  }
+  /* screen glow flickers while lit */
+  if (tv.mode !== 'off'){
+    tv.light.intensity = 0.75 + 0.2*Math.sin(time*13.0) * Math.sin(time*7.3)
+                       + (tv.mode === 'static' ? 0.15*Math.sin(time*47.0) : 0);
+  } else {
+    tv.light.intensity = 0;
+  }
+  /* broadcast volume falls off with distance; wind ducks under it */
+  if (tv.mode === 'video'){
+    const prox = Math.max(0, Math.min(1, 1 - (tvD - 7) / 26));
+    tvVideo.volume = 0.85 * prox;
+    tvVideo.muted = audio.isMuted();
+    audio.setDuck(prox * 0.9);
+  } else {
+    audio.setDuck(0);
+  }
+
+  if (tvD < 17){
+    promptEl.textContent = tv.mode === 'off'
+      ? 'Turn on the television' : 'Change channel';
+    promptEl.classList.add('show');
+  } else if (nearIcon){
     promptEl.textContent = 'Open ' + nearIcon.exp.file;
     promptEl.classList.add('show');
   } else {
