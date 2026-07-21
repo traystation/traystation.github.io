@@ -299,7 +299,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'Seafront.exe',
     label: 'Seafront',
     url: 'https://traystation.github.io/seafront/',
-    pos: [30, -16],
+    pos: [42, -20],
     glyph: 'sea'
   },
   {
@@ -735,7 +735,7 @@ function meteorStep(dt){
    weather; rain is bright noise; thunder arrives late, like it should. */
 const audio = (function(){
   let ctx = null, master, windGain, windFilter, rainGain, staticGain, muted = true;
-  let windBuf, rainBuf, fxBuf, duck = 0;
+  let windBuf, rainBuf, fxBuf, duck = 0, tvSrcNode = null, tvGain = null;
   function makeNoise(seconds){
     const len = Math.floor(ctx.sampleRate * seconds);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -861,8 +861,21 @@ const audio = (function(){
   function unlock(){
     if (ctx && ctx.state === 'suspended') ctx.resume();
   }
+  /* iOS makes video.volume read-only, so the broadcast routes through
+     the graph instead — same speaker as the wind and the thunder. */
+  function attachVideo(el){
+    if (!ctx || tvSrcNode) return;
+    tvSrcNode = ctx.createMediaElementSource(el);
+    tvGain = ctx.createGain(); tvGain.gain.value = 0;
+    tvSrcNode.connect(tvGain); tvGain.connect(master);
+  }
+  function setTvVolume(v){
+    if (tvGain && ctx)
+      tvGain.gain.setTargetAtTime(v, ctx.currentTime, 0.15);
+  }
   return { init, setMuted, update, thunder, startup, step, unlock,
-           setStatic, setDuck, isMuted: () => muted };
+           setStatic, setDuck, attachVideo, setTvVolume,
+           isMuted: () => muted };
 })();
 const sndBtn = document.getElementById('sndBtn');
 sndBtn.onclick = e => {
@@ -1037,7 +1050,7 @@ function tvSetChannel(i){
   if (tv.burstTimer) clearTimeout(tv.burstTimer);
   tv.burstTimer = setTimeout(() => {
     tvVideo.src = 'media/' + TV_CHANNELS[tv.channel];
-    tvVideo.muted = audio.isMuted();
+    tvVideo.muted = false;   // level lives in the WebAudio graph now
     const p = tvVideo.play();
     if (p && p.catch) p.catch(() => {});
   }, 380);
@@ -1054,6 +1067,7 @@ tvVideo.addEventListener('error', () => {
 });
 function tvNext(){
   audio.init();
+  audio.attachVideo(tvVideo);
   if (tv.mode === 'off') tvSetChannel(0);
   else tvSetChannel(tv.channel + 1);
 }
@@ -1596,10 +1610,10 @@ function animate(){
   /* broadcast volume falls off with distance; wind ducks under it */
   if (tv.mode === 'video'){
     const prox = Math.max(0, Math.min(1, 1 - (tvD - 7) / 26));
-    tvVideo.volume = 0.85 * prox;
-    tvVideo.muted = audio.isMuted();
+    audio.setTvVolume(0.8 * prox);
     audio.setDuck(prox * 0.9);
   } else {
+    audio.setTvVolume(0);
     audio.setDuck(0);
   }
 
