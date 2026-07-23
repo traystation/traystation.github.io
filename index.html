@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -30,7 +29,7 @@
   #scene{position:fixed;inset:0;display:block;cursor:grab;}
   #scene.dragging{cursor:grabbing;}
 
-/* ––––– Boot screen ––––– */
+/* ----- Boot screen ----- */
 #boot{position:fixed;inset:0;background:#000;z-index:100;display:flex;
 flex-direction:column;align-items:center;justify-content:center;gap:38px;
 transition:opacity .9s ease;}
@@ -52,7 +51,7 @@ height:16px;margin-top:-16px;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 #boot .foot{position:absolute;bottom:26px;color:#777;font-size:11px;}
 
-/* ––––– HUD ––––– */
+/* ----- HUD ----- */
 #hint{position:fixed;top:14px;left:14px;z-index:20;color:#fff;font-size:12px;
 background:rgba(10,20,50,.45);border:1px solid rgba(255,255,255,.25);
 padding:7px 12px;border-radius:3px;backdrop-filter:blur(3px);
@@ -65,7 +64,7 @@ opacity:0;transition:opacity .25s ease;pointer-events:none;
 text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap;}
 #prompt.show{opacity:1;}
 
-/* ––––– Taskbar ––––– */
+/* ----- Taskbar ----- */
 #taskbar{position:fixed;left:0;right:0;bottom:0;height:32px;z-index:30;
 background:linear-gradient(#3E7DF0 0%,#2A62DE 8%,#245EDC 45%,#1E52C6 92%,#1941A5 100%);
 display:flex;align-items:stretch;box-shadow:0 -1px 4px rgba(0,0,0,.4);}
@@ -84,9 +83,9 @@ background:linear-gradient(#2FA0E8 0%,#1B7ED0 50%,#1668B8 100%);
 border-left:1px solid rgba(0,0,0,.3);box-shadow:inset 1px 1px 2px rgba(255,255,255,.25);}
 #clock{color:#fff;font-size:12px;text-shadow:0 1px 1px rgba(0,0,0,.4);min-width:52px;text-align:center;}
 
-/* ––––– Start menu ––––– */
+/* ----- Start menu ----- */
 #startMenu{position:fixed;left:0;bottom:32px;width:240px;z-index:29;
-background:#fff;border:1px solid var(–xp-blue-dark);border-radius:6px 6px 0 0;
+background:#fff;border:1px solid var(--xp-blue-dark);border-radius:6px 6px 0 0;
 overflow:hidden;box-shadow:3px -3px 12px rgba(0,0,0,.35);display:none;}
 #startMenu.open{display:block;}
 #startMenu .head{background:linear-gradient(90deg,#1941A5,#3E7DF0);color:#fff;
@@ -96,19 +95,19 @@ opacity:.85;margin-top:2px;}
 #startMenu .items{padding:6px 0;}
 #startMenu .item{display:flex;align-items:center;gap:10px;padding:8px 14px;
 font-size:12px;color:#111;cursor:pointer;}
-#startMenu .item:hover{background:var(–xp-blue);color:#fff;}
+#startMenu .item:hover{background:var(--xp-blue);color:#fff;}
 #startMenu .item .ic{width:22px;height:22px;flex:none;border-radius:3px;
 background:linear-gradient(135deg,#5A93E8,#2456c8);
 box-shadow:inset 0 0 3px rgba(255,255,255,.5);position:relative;}
-#startMenu .item .ic::after{content:’’;position:absolute;inset:5px;
+#startMenu .item .ic::after{content:'';position:absolute;inset:5px;
 border:1.5px solid rgba(255,255,255,.85);border-radius:1px;}
 #startMenu .item img.mic{width:22px;height:22px;flex:none;display:block;}
 #startMenu .foot{border-top:1px solid #d8d8d8;padding:8px 14px;font-size:10px;color:#777;
 background:#F4F4F0;}
 
-/* ––––– XP dialog ––––– */
+/* ----- XP dialog ----- */
 #dialog{position:fixed;left:50%;top:42%;transform:translate(-50%,-50%);z-index:40;
-width:min(340px,86vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
+width:min(340px,86vw);background:#ECE9D8;border:1px solid var(--xp-blue-dark);
 border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
 #dialog.open{display:block;}
 #dialog .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
@@ -124,9 +123,9 @@ cursor:pointer;line-height:1;font-family:inherit;}
 border:1px solid #003C74;border-radius:3px;cursor:pointer;
 background:linear-gradient(#FDFDFB,#E5E5DE 85%,#CFCFC7);}
 
-/* ––––– XP app windows ––––– */
+/* ----- XP app windows ----- */
 .xpwin{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:40;
-width:min(400px,92vw);background:#ECE9D8;border:1px solid var(–xp-blue-dark);
+width:min(400px,92vw);background:#ECE9D8;border:1px solid var(--xp-blue-dark);
 border-radius:8px 8px 3px 3px;box-shadow:4px 6px 18px rgba(0,0,0,.45);display:none;}
 .xpwin.open{display:block;}
 .xpwin .tbar{background:linear-gradient(90deg,#1941A5 0%,#3E7DF0 60%,#2A62DE 100%);
@@ -138,7 +137,7 @@ background:linear-gradient(#F0A088,#D44E28);color:#fff;font-weight:700;font-size
 cursor:pointer;line-height:1;font-family:inherit;flex:none;}
 .xpwin .menubar{font-size:11px;padding:4px 10px;color:#222;display:flex;gap:14px;
 border-bottom:1px solid #d0cdbd;}
-.xpwin .note{background:#fff;font:12px/1.8 “Lucida Console”,“Courier New”,monospace;
+.xpwin .note{background:#fff;font:12px/1.8 "Lucida Console","Courier New",monospace;
 padding:14px 16px;margin:0 3px 3px;border:1px solid #b8b4a2;
 white-space:pre-wrap;color:#111;-webkit-user-select:text;user-select:text;}
 .xpwin .note a{color:#1941A5;}
@@ -157,7 +156,7 @@ border:1px solid #003C74;border-radius:3px;cursor:pointer;
 background:linear-gradient(#FDFDFB,#E5E5DE 85%,#CFCFC7);}
 .xpwin .btnrow button:disabled{color:#999;cursor:default;}
 
-/* ––––– Mobile joystick ––––– */
+/* ----- Mobile joystick ----- */
 #stick{position:fixed;left:22px;bottom:56px;width:96px;height:96px;z-index:25;
 border-radius:50%;background:rgba(255,255,255,.10);
 border:1.5px solid rgba(255,255,255,.35);display:none;}
@@ -166,7 +165,7 @@ background:rgba(255,255,255,.45);transform:translate(-50%,-50%);
 box-shadow:0 1px 4px rgba(0,0,0,.3);}
 body.touch #stick{display:block;}
 
-/* ––––– Lightning flash ––––– */
+/* ----- Lightning flash ----- */
 #flash{position:fixed;inset:0;background:#EAF2FF;opacity:0;pointer-events:none;
 z-index:28;transition:opacity .28s ease-out;}
 
@@ -178,7 +177,6 @@ font-family:inherit;line-height:1;padding:2px;}
 #boot .blocks{animation-duration:3.2s;}
 }
 </style>
-
 </head>
 <body>
 
@@ -190,40 +188,39 @@ font-family:inherit;line-height:1;padding:2px;}
   <div class="logo"><b>Tray</b>Station<span class="tm">&nbsp;xp</span></div>
   <div class="bar"><div class="blocks"><span></span><span></span><span></span></div></div>
   <div class="enter" id="bootEnter">Click anywhere to begin</div>
-  <div class="foot">Copyright © 2026 Tracer Ital</div>
+  <div class="foot">Copyright &copy; 2026 Tracer Ital</div>
 </div>
 
-<div id="hint">Drag to look &nbsp;·&nbsp; W A S D to walk</div>
+<div id="hint">Drag to look &nbsp;&middot;&nbsp; W A S D to walk</div>
 <div id="prompt"></div>
 
 <div id="stick"><div class="nub"></div></div>
 
 <div id="startMenu">
-  <div class="head">TrayStation<small>Latent Liminal OS — Home Edition</small></div>
+  <div class="head">TrayStation<small>Latent Liminal OS &mdash; Home Edition</small></div>
   <div class="items" id="menuItems"></div>
   <div class="foot">Windows could not check for updates automatically.</div>
 </div>
 
 <div id="aboutWin" class="xpwin">
-  <div class="tbar"><span>about.txt — Notepad</span><button id="aboutX">✕</button></div>
+  <div class="tbar"><span>about.txt &mdash; Notepad</span><button id="aboutX">&#10005;</button></div>
   <div class="menubar"><span>File</span><span>Edit</span><span>Format</span><span>View</span><span>Help</span></div>
   <div class="note">Tracer Ital
 
-Film Director & Photographer.
-I ONLY DRINK FIJI WATER. 🌊
+Film Director &amp; Photographer.
+I ONLY DRINK FIJI WATER. &#127754;
 
 Represented by <a href="https://www.adrenalinphotographic.com/photos/tracer-ital-2/" target="_blank" rel="noopener">Adrenalin Photographic</a>
-LDN • PARIS • LA • NYC</div>
-
+LDN &bull; PARIS &bull; LA &bull; NYC</div>
 </div>
 
 <div id="contactWin" class="xpwin">
-  <div class="tbar"><span>New Message</span><button id="contactX">✕</button></div>
+  <div class="tbar"><span>New Message</span><button id="contactX">&#10005;</button></div>
   <div class="menubar"><span>File</span><span>Edit</span><span>Insert</span><span>Tools</span><span>Help</span></div>
   <div class="fld"><label>To:</label><div class="val" id="cTo"></div></div>
   <div class="fld"><label>Subject:</label><div class="val">Booking enquiry</div></div>
-  <div class="cbody">Direct line above — or go through representation:<br>
-    <a href="https://www.adrenalinphotographic.com/photos/tracer-ital-2/" target="_blank" rel="noopener">Adrenalin Photographic — view portfolio</a></div>
+  <div class="cbody">Direct line above &mdash; or go through representation:<br>
+    <a href="https://www.adrenalinphotographic.com/photos/tracer-ital-2/" target="_blank" rel="noopener">Adrenalin Photographic &mdash; view portfolio</a></div>
   <div class="btnrow">
     <button id="cCopy">Copy address</button>
     <button id="cSend">Send</button>
@@ -232,11 +229,11 @@ LDN • PARIS • LA • NYC</div>
 
 <div id="taskbar">
   <button id="startBtn"><span class="orb"></span>start</button>
-  <div id="tray"><button id="sndBtn" title="Sound">🔇</button><div id="clock">12:00</div></div>
+  <div id="tray"><button id="sndBtn" title="Sound">&#128263;</button><div id="clock">12:00</div></div>
 </div>
 
 <div id="dialog">
-  <div class="tbar"><span id="dlgTitle">Seafront.exe</span><button id="dlgX">✕</button></div>
+  <div class="tbar"><span id="dlgTitle">Seafront.exe</span><button id="dlgX">&#10005;</button></div>
   <div class="body" id="dlgBody"></div>
   <div class="btnrow"><button id="dlgOk">OK</button></div>
 </div>
@@ -245,7 +242,7 @@ LDN • PARIS • LA • NYC</div>
 
 <script>
 /* ================================================================
-   TRAYSTATION — the valley
+   TRAYSTATION - the valley
    ----------------------------------------------------------------
    DESKTOP MANIFEST
    Add a new experience by adding one entry here. Nothing else
@@ -269,13 +266,13 @@ const TV_CHANNELS = [
 const TV_POS = [4, -32];          // where the television sits in the grass
 
 /* ================================================================
-   THE WITCHING HOUR — configuration
+   THE WITCHING HOUR - configuration
    Seeded by the real-world date: roughly one date in ONE_IN
    qualifies. On a qualifying date, the first time valley time
-   reaches 3:00 AM, the hour begins — DURATION seconds, clock
+   reaches 3:00 AM, the hour begins - DURATION seconds, clock
    frozen at 3:00 AM. Apparitions surface only during the hour.
    Drop archive files into /witching/ and set `media`; null slots
-   surface as unplayable presences. 2–3 are chosen per date.
+   surface as unplayable presences. 2-3 are chosen per date.
    Dev keys (ours, undocumented): ?witching  ?snow  ?fog
    ================================================================ */
 const QS = new URLSearchParams(location.search);
@@ -309,7 +306,7 @@ const DESKTOP_EXPERIENCES = [
     label: 'Media Player',
     action: 'tv',
     pos: TV_POS,          // Start menu points at the television itself
-    hidden: true,         // no world icon — the set is its own signage
+    hidden: true,         // no world icon - the set is its own signage
     glyph: 'wmp'
   },
   {
@@ -364,8 +361,8 @@ const DESKTOP_EXPERIENCES = [
 ];
 
 /* ---------------- Day/night cycle ----------------
-   t ∈ [0,1). t=0 noon · 0.25 sunset · 0.5 midnight · 0.75 sunrise.
-   The site boots at canonical high noon — the frozen image —
+   t in [0,1). t=0 noon / 0.25 sunset / 0.5 midnight / 0.75 sunrise.
+   The site boots at canonical high noon - the frozen image -
    then it starts to move.                                        */
 const DAY_LENGTH = 400;           // seconds for a full day
 let cycleT = 0.0;                 // start at noon
@@ -414,7 +411,7 @@ function cycleState(t){
 function g(u){ return Math.exp(-u*u); }
 function terrainHeight(x, z){
   let h = 0;
-  h += 11.0 * g((x+42)/46) * g((z+58)/58);      // the hill — Bliss's hill
+  h += 11.0 * g((x+42)/46) * g((z+58)/58);      // the hill - Bliss's hill
   h +=  4.5 * g((x-64)/52) * g((z+14)/64);      // supporting swell, right
   h +=  3.0 * g((x+10)/70) * g((z-70)/60);      // rise behind the spawn
   h +=  1.1 * Math.sin(x*0.045) * Math.cos(z*0.052);
@@ -503,7 +500,7 @@ const snowUniform = { value: 0 };   // 0 = green, 1 = the hill gone white
 })();
 
 /* Sun & moon sprites.
-   Soft-alpha textures are generated as raw pixel data, not canvas —
+   Soft-alpha textures are generated as raw pixel data, not canvas -
    iOS canvas premultiplies alpha and the un-premultiply pass turns
    low-alpha gradients into rainbow speckle. DataTexture avoids it. */
 function discTexture(r, g, b, plateau){
@@ -555,7 +552,7 @@ const starMatBright = new THREE.PointsMaterial({color:0xF6F9FF, size:2.9,
   starPts.renderOrder = -2;
   scene.add(starPts);
 
-  /* The Hourglass — an invented constellation. The machine dreams
+  /* The Hourglass - an invented constellation. The machine dreams
      in its own iconography: the XP wait cursor, written in stars. */
   const HG = [ [0,1],[1,1],[-1,1], [0,-1],[1,-1],[-1,-1], [0,0] ];
   const az = 2.3, el = 0.62, r2 = 415, sc = 0.055;
@@ -579,7 +576,7 @@ const starMatBright = new THREE.PointsMaterial({color:0xF6F9FF, size:2.9,
   scene.add(hgPts);
 })();
 
-/* Clouds — soft billboards drifting over the valley */
+/* Clouds - soft billboards drifting over the valley */
 const cloudMats = [];
 const clouds = [];
 (function buildClouds(){
@@ -620,7 +617,7 @@ const clouds = [];
 })();
 
 /* ---------------- Horizon flare ----------------
-   A brief bloom where the sun crosses the horizon — light bending
+   A brief bloom where the sun crosses the horizon - light bending
    through the thick edge of the atmosphere.                        */
 const flareSprite = new THREE.Sprite(new THREE.SpriteMaterial({
   map: discTexture(255, 236, 190, 0.2),
@@ -629,7 +626,7 @@ flareSprite.scale.set(190, 46, 1);
 scene.add(flareSprite);
 
 /* ---------------- Weather machine ----------------
-   CLEAR → (sometimes) RAIN → (sometimes) STORM → CLEAR.
+   CLEAR -> (sometimes) RAIN -> (sometimes) STORM -> CLEAR.
    wind is its own slow animal underneath everything.               */
 const weather = { wind:0.12, windTarget:0.15, rain:0, rainTarget:0,
                   state:'CLEAR', timer: 40 + Math.random()*50,
@@ -797,7 +794,7 @@ const audio = (function(){
     const masterLP = ctx.createBiquadFilter();
     masterLP.type = 'lowpass'; masterLP.frequency.value = 6800; masterLP.Q.value = 0.2;
     master.connect(masterLP); masterLP.connect(ctx.destination);
-    /* independent buffers — a shared loop comb-filters against itself
+    /* independent buffers - a shared loop comb-filters against itself
        and reads as a drone. Longer loops hide the loop period too. */
     windBuf = makeNoise(5); rainBuf = makeNoise(4); fxBuf = makeNoise(3);
     /* wind */
@@ -833,9 +830,9 @@ const audio = (function(){
       if (!m) ctx.resume();
       master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.3);
     }
-    sndBtn.textContent = m ? '🔇' : '🔊';
+    sndBtn.textContent = m ? '\u{1F507}' : '\u{1F50A}';
   }
-  /* An original welcome chime — warm, rising, gone in three seconds.
+  /* An original welcome chime - warm, rising, gone in three seconds.
      Reminiscent of booting up somewhere familiar, without being it. */
   function startup(){
     if (!ctx || muted) return;
@@ -911,7 +908,7 @@ const audio = (function(){
     if (ctx && ctx.state === 'suspended') ctx.resume();
   }
   /* iOS makes video.volume read-only, so the broadcast routes through
-     the graph instead — same speaker as the wind and the thunder. */
+     the graph instead - same speaker as the wind and the thunder. */
   function attachVideo(el){
     if (!ctx || tvSrcNode) return;
     tvSrcNode = ctx.createMediaElementSource(el);
@@ -923,7 +920,7 @@ const audio = (function(){
       tvGain.gain.setTargetAtTime(v, ctx.currentTime, 0.15);
   }
   /* --- the witching hour ---
-     A sub-tone barely above threshold — presence, not sound.
+     A sub-tone barely above threshold - presence, not sound.
      And the boot chime falling back down, minor, at a distance. */
   function setWitchDamp(v){ witchDamp = Math.max(0, Math.min(1, v)); }
   function witchStart(){
@@ -990,7 +987,7 @@ tvVideo.setAttribute('playsinline',''); tvVideo.preload = 'none';
 const tvTexture = new THREE.VideoTexture(tvVideo);
 tvTexture.minFilter = THREE.LinearFilter; tvTexture.magFilter = THREE.LinearFilter;
 
-/* OSD — green channel number, VCR style */
+/* OSD - green channel number, VCR style */
 const osdCanvas = document.createElement('canvas');
 osdCanvas.width = 128; osdCanvas.height = 64;
 const osdTex = new THREE.CanvasTexture(osdCanvas);
@@ -1007,7 +1004,7 @@ function setOsd(text){
 
 const tvScreenMat = new THREE.ShaderMaterial({
   uniforms: {
-    uMode: { value: 0 },          // 0 off · 1 static · 2 video
+    uMode: { value: 0 },          // 0 off / 1 static / 2 video
     uTex:  { value: tvTexture },
     uOsd:  { value: osdTex },
     uOsdA: { value: 0 },
@@ -1023,7 +1020,7 @@ const tvScreenMat = new THREE.ShaderMaterial({
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
     void main(){
-      /* barrel distortion — the glass */
+      /* barrel distortion - the glass */
       vec2 c = vUv*2.0 - 1.0;
       float r2 = dot(c,c);
       c *= 1.0 + 0.07*r2;
@@ -1089,7 +1086,7 @@ const tvScreenMat = new THREE.ShaderMaterial({
   bezel.position.set(0, 2.8, 2.65);
   group.add(bezel);
 
-  /* the tube — 4:3 */
+  /* the tube - 4:3 */
   const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 4.2), tvScreenMat);
   screen.position.set(0, 3.0, 2.82);
   group.add(screen);
@@ -1121,7 +1118,7 @@ const tvScreenMat = new THREE.ShaderMaterial({
   sh.position.set(tx, ty + 0.07, tz);
   scene.add(sh);
 
-  /* screen glow — the TV light on the grass at night */
+  /* screen glow - the TV light on the grass at night */
   const light = new THREE.PointLight(0x9FB8E8, 0, 26, 2);
   light.position.set(0, 3.2, 4.5);
   group.add(light);
@@ -1177,7 +1174,7 @@ function drawIconTexture(exp){
   const cv = document.createElement('canvas'); cv.width=256; cv.height=300;
   const ctx = cv.getContext('2d');
 
-  // icon plate — XP-style rounded square
+  // icon plate - XP-style rounded square
   const px = 58, py = 14, pw = 140, ph = 140, r = 20;
   ctx.save();
   ctx.beginPath();
@@ -1214,7 +1211,7 @@ function drawIconTexture(exp){
     ctx.beginPath();
     ctx.moveTo(px+pw-24, py+16); ctx.lineTo(px+pw-42, py+16);
     ctx.lineTo(px+pw-24, py+34); ctx.closePath(); ctx.fill();
-    // thumbnail: sky, hill, sun — the wallpaper inside the wallpaper
+    // thumbnail: sky, hill, sun - the wallpaper inside the wallpaper
     ctx.fillStyle = '#8EC8EE'; ctx.fillRect(px+34, py+34, pw-68, 42);
     ctx.fillStyle = '#6FA83A';
     ctx.beginPath();
@@ -1306,7 +1303,7 @@ function drawIconTexture(exp){
   ctx.lineTo(px+22, py+ph-13); ctx.lineTo(px+10, py+ph-9);
   ctx.fill();
 
-  // label — white Tahoma with the classic soft shadow
+  // label - white Tahoma with the classic soft shadow
   const fpx = exp.file.length > 12 ? 24 : 30;
   ctx.font = '700 ' + fpx + 'px Tahoma, sans-serif';
   ctx.textAlign = 'center';
@@ -1353,97 +1350,89 @@ DESKTOP_EXPERIENCES.forEach(exp => {
 /* ================================================================
    THE AFTERMATH
    Residue of the Witching Hour, present at every ordinary hour.
-   The valley must feel robbed — like something happened here
+   The valley must feel robbed - like something happened here
    and will again.
    ================================================================ */
 
 /* --- the fallen cursor ---
    The arrow, monumental, out of the screen-world and onto the far
-   slope. Real pixel-staircase geometry: each bitmap cell is a solid
-   block, one instanced draw, dark inverted-hull rim. The Hourglass
-   dreams above it; this one stopped. */
+   slope. Real pixel-staircase geometry: one instanced draw for the
+   body, ONE silhouette hull for the whole arrow (scaled about its
+   own centroid) so the dark line lives only on the outer edge.
+   Low emissive keeps the body pale in shade. The Hourglass dreams
+   above it; this one stopped. */
 const cursorGlow = new THREE.PointLight(0xCBD6EC, 0, 34, 2);
-/* ================================================================
-PATCH — the fallen cursor
-
-Fix: the old build gave every pixel-cell its own 1.18× inverted
-hull, so rims protruded through every seam and the arrow read as
-a dark lattice. Now: ONE silhouette hull for the whole arrow,
-scaled about its own centroid — the dark line lives only on the
-outer edge, where the 1px outline belongs. Plus a low emissive
-so the white body stays pale in shade instead of going slate.
-================================================================ */
 (function buildFallenCursor(){
-const BMP = [
-‘X……….’,
-‘XX………’,
-‘XXX……..’,
-‘XXXX…….’,
-‘XXXXX……’,
-‘XXXXXX…..’,
-‘XXXXXXX….’,
-‘XXXXXXXX…’,
-‘XXXXXXXXX..’,
-‘XXXXXXXXXX.’,
-‘XXXXXXXXXXX’,
-‘XXXX.XXX…’,
-‘XXX…XXX..’,
-‘XX….XXX..’,
-‘X……XXX.’,
-‘…….XXX.’,
-‘……..XX.’,
-];
-const P = 0.68;                       // metres per pixel ≈ 11.5m tall
-const cells = [];
-BMP.forEach((row, ry) => {
-for (let cx = 0; cx < row.length; cx++)
-if (row[cx] === ‘X’) cells.push([cx, ry]);
-});
-const boxGeo = new THREE.BoxGeometry(P, P, P*1.3);
-const white  = new THREE.MeshLambertMaterial({color:0xE8E8EC,
-emissive:0x3E3E46});                // pale even in shade — screen-lit
-const rim    = new THREE.MeshBasicMaterial({color:0x16161C,
-side:THREE.BackSide});
-const bodyIM = new THREE.InstancedMesh(boxGeo, white, cells.length);
-const hullIM = new THREE.InstancedMesh(boxGeo, rim,  cells.length);
-const dummy = new THREE.Object3D();
+  const BMP = [
+    'X..........',
+    'XX.........',
+    'XXX........',
+    'XXXX.......',
+    'XXXXX......',
+    'XXXXXX.....',
+    'XXXXXXX....',
+    'XXXXXXXX...',
+    'XXXXXXXXX..',
+    'XXXXXXXXXX.',
+    'XXXXXXXXXXX',
+    'XXXX.XXX...',
+    'XXX...XXX..',
+    'XX....XXX..',
+    'X......XXX.',
+    '.......XXX.',
+    '........XX.',
+  ];
+  const P = 0.68;                       // metres per pixel, ~11.5m tall
+  const cells = [];
+  BMP.forEach((row, ry) => {
+    for (let cx = 0; cx < row.length; cx++)
+      if (row[cx] === 'X') cells.push([cx, ry]);
+  });
+  const boxGeo = new THREE.BoxGeometry(P, P, P*1.3);
+  const white  = new THREE.MeshLambertMaterial({color:0xE8E8EC,
+    emissive:0x3E3E46});                // pale even in shade - screen-lit
+  const rim    = new THREE.MeshBasicMaterial({color:0x16161C,
+    side:THREE.BackSide});
+  const bodyIM = new THREE.InstancedMesh(boxGeo, white, cells.length);
+  const hullIM = new THREE.InstancedMesh(boxGeo, rim,  cells.length);
+  const dummy = new THREE.Object3D();
 
-/* arrow centroid — the hull scales about this, not per cell */
-let sx = 0, sy = 0;
-cells.forEach(([cx, ry]) => { sx += cx; sy += ry; });
-const ccx = (sx / cells.length) * P;
-const ccy = -(sy / cells.length) * P;
+  /* arrow centroid - the hull scales about this, not per cell */
+  let sx = 0, sy = 0;
+  cells.forEach(([cx, ry]) => { sx += cx; sy += ry; });
+  const ccx = (sx / cells.length) * P;
+  const ccy = -(sy / cells.length) * P;
 
-cells.forEach(([cx, ry], i) => {
-dummy.position.set(cx*P, -ry*P, 0);
-dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-bodyIM.setMatrixAt(i, dummy.matrix);
-hullIM.setMatrixAt(i, dummy.matrix);
-});
+  cells.forEach(([cx, ry], i) => {
+    dummy.position.set(cx*P, -ry*P, 0);
+    dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    bodyIM.setMatrixAt(i, dummy.matrix);
+    hullIM.setMatrixAt(i, dummy.matrix);
+  });
 
-/* one silhouette hull for the whole arrow: offset the instances so
-the centroid sits at the group origin, inflate the group, put it
-back. The dark rim now exists only where the arrow meets the sky
-— including the pixel staircase, which stays real geometry. */
-hullIM.position.set(-ccx, -ccy, 0);
-const hullGrp = new THREE.Group();
-hullGrp.add(hullIM);
-hullGrp.scale.set(1.05, 1.05, 1.12);
-hullGrp.position.set(ccx, ccy, 0);
+  /* one silhouette hull for the whole arrow: offset the instances so
+     the centroid sits at the group origin, inflate the group, put it
+     back. The dark rim now exists only where the arrow meets the sky
+     - including the pixel staircase, which stays real geometry. */
+  hullIM.position.set(-ccx, -ccy, 0);
+  const hullGrp = new THREE.Group();
+  hullGrp.add(hullIM);
+  hullGrp.scale.set(1.05, 1.05, 1.12);
+  hullGrp.position.set(ccx, ccy, 0);
 
-const grp = new THREE.Group();
-grp.add(hullGrp); grp.add(bodyIM); grp.add(cursorGlow);
-const gx = -46, gz = -80;
-const gy = terrainHeight(gx, gz);
-grp.position.set(gx, gy + 1.8, gz);        // tip end dips under the grass
-grp.rotation.set(-1.30, 2.3, 0.5);         // dropped, not placed
-scene.add(grp);
-const sh = new THREE.Mesh(new THREE.CircleGeometry(5.8, 26),
-new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
-opacity:0.24, depthWrite:false}));
-sh.rotation.x = -Math.PI/2; sh.scale.set(1.5, 1, 0.8);
-sh.position.set(gx + 1.2, gy + 0.07, gz + 1.5);
-scene.add(sh);
+  const grp = new THREE.Group();
+  grp.add(hullGrp); grp.add(bodyIM); grp.add(cursorGlow);
+  const gx = -46, gz = -80;
+  const gy = terrainHeight(gx, gz);
+  grp.position.set(gx, gy + 1.8, gz);        // tip end dips under the grass
+  grp.rotation.set(-1.30, 2.3, 0.5);         // dropped, not placed
+  scene.add(grp);
+  const sh = new THREE.Mesh(new THREE.CircleGeometry(5.8, 26),
+    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
+      opacity:0.24, depthWrite:false}));
+  sh.rotation.x = -Math.PI/2; sh.scale.set(1.5, 1, 0.8);
+  sh.position.set(gx + 1.2, gy + 0.07, gz + 1.5);
+  scene.add(sh);
 })();
 
 /* --- broken shortcut: SEAFR~1.LNK ---
@@ -1465,7 +1454,7 @@ function drawBrokenIcon(){
   c.fillStyle = '#7E8290'; c.fillRect(px+28, py+34, pw-56, 18);
   c.fillStyle = '#A9ACB6';
   c.fillRect(px+36, py+62, pw-72, 8); c.fillRect(px+36, py+78, pw-92, 8);
-  /* unknown badge — a question where the arrow should be */
+  /* unknown badge - a question where the arrow should be */
   c.fillStyle = '#fff'; c.fillRect(px+4, py+ph-26, 24, 22);
   c.strokeStyle = '#888'; c.lineWidth = 1.5; c.strokeRect(px+4, py+ph-26, 24, 22);
   c.fillStyle = '#2E5FC4'; c.font = '700 19px Tahoma, sans-serif';
@@ -1500,7 +1489,7 @@ function drawBrokenIcon(){
 
 /* --- what fell and stayed down --- */
 (function buildFallenPlates(){
-  /* missing image — the sheet with the red cross, face up in the grass */
+  /* missing image - the sheet with the red cross, face up in the grass */
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const c = cv.getContext('2d');
   c.fillStyle = '#FBFBF9'; c.fillRect(28, 20, 200, 216);
@@ -1520,7 +1509,7 @@ function drawBrokenIcon(){
   m1.rotation.set(-Math.PI/2 + 0.09, 0, 0.55);
   scene.add(m1);
 
-  /* one face-down — a blank grey back. no explanation is offered */
+  /* one face-down - a blank grey back. no explanation is offered */
   const cv2 = document.createElement('canvas'); cv2.width = cv2.height = 256;
   const c2 = cv2.getContext('2d');
   c2.fillStyle = '#CDD1D8';
@@ -1569,7 +1558,7 @@ function drawApparition(file){
   c.beginPath();
   c.moveTo(px+30, py+26+(ph-60)/2); c.lineTo(px+pw-30, py+26+(ph-60)/2);
   c.stroke();
-  /* no shortcut badge — these are not shortcuts to anything */
+  /* no shortcut badge - these are not shortcuts to anything */
   const fpx = file.length > 12 ? 22 : 28;
   c.font = '700 ' + fpx + 'px Tahoma, sans-serif';
   c.textAlign = 'center';
@@ -1580,7 +1569,7 @@ function drawApparition(file){
 }
 
 (function buildApparitions(){
-  /* seeded pick — a different subset surfaces each qualifying date */
+  /* seeded pick - a different subset surfaces each qualifying date */
   let s = SEED;
   const rnd = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
   const n = 2 + (SEED % 2);
@@ -1611,7 +1600,7 @@ function witchPlay(app){
       tvVideo.muted = false;
       const p = tvVideo.play(); if (p && p.catch) p.catch(() => {});
     }
-    /* media:null — the set keeps hissing. nothing surfaces for you tonight. */
+    /* media:null - the set keeps hissing. nothing surfaces for you tonight. */
   }, 600);
 }
 
@@ -1684,7 +1673,7 @@ function witchStep(dt, time){
 }
 
 /* ================================================================
-   SNOW & FOG — the valley's colder registers
+   SNOW & FOG - the valley's colder registers
    ================================================================ */
 const SNOW_N = 620;
 const snowData = [];
@@ -1724,7 +1713,7 @@ function snowStep(dt, time){
   snowGeo.attributes.position.needsUpdate = true;
 }
 
-/* fog is its own slow animal — banks that roll through, fuller
+/* fog is its own slow animal - banks that roll through, fuller
    after dark, revealing and swallowing the far slope */
 let fogAmt = FOG_FORCED ? 0.85 : 0.08, fogTarget = fogAmt, fogTimer = 24;
 function fogStep(dt){
@@ -1842,7 +1831,7 @@ function handleClick(cx, cy){
     const exp = hits[0].object.userData.exp;
     const d = Math.hypot(player.x - hits[0].object.position.x,
                          player.z - hits[0].object.position.z);
-    if (d > 26) return;   // too far — walk closer, that's the point
+    if (d > 26) return;   // too far - walk closer, that's the point
     openExperience(exp);
   }
 }
@@ -1884,7 +1873,7 @@ document.getElementById('cSend').onclick = () => {
 };
 document.getElementById('cCopy').onclick = e => {
   const done = () => {
-    e.target.textContent = 'Copied ✓';
+    e.target.textContent = 'Copied \u2713';
     setTimeout(() => e.target.textContent = 'Copy address', 1800);
   };
   if (navigator.clipboard && navigator.clipboard.writeText){
@@ -1909,7 +1898,7 @@ addEventListener('pointerdown', e => {
 });
 let turnTarget = null;
 /* menu icons are cropped from the same painter as the world sprites,
-   so they match by construction — including future .exes */
+   so they match by construction - including future .exes */
 function menuIconURL(exp){
   const src = drawIconTexture(exp).image;      // the painter's canvas
   const m = document.createElement('canvas');
@@ -1959,7 +1948,7 @@ function enterValley(){
 }
 boot.addEventListener('click', enterValley);
 addEventListener('keydown', e => { if (e.key === 'Enter') enterValley(); });
-/* iOS resumes audio only inside touchend/click gestures — keep a net out */
+/* iOS resumes audio only inside touchend/click gestures - keep a net out */
 addEventListener('click', () => audio.unlock());
 addEventListener('touchend', () => audio.unlock());
 
@@ -2033,7 +2022,7 @@ function animate(){
   cloudMats.forEach(m => m.color.copy(st.cloud));
 
   /* sun & moon on their great circle */
-  const ang = -cycleT * Math.PI * 2 + Math.PI/2;   // t=0 → overhead
+  const ang = -cycleT * Math.PI * 2 + Math.PI/2;   // t=0 -> overhead
   const R = 380;
   const sunPos = new THREE.Vector3(
     Math.cos(ang) * R * 0.62, Math.sin(ang) * R, Math.cos(ang) * R * 0.5);
