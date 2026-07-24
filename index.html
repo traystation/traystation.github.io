@@ -364,7 +364,7 @@ const DESKTOP_EXPERIENCES = [
    t in [0,1). t=0 noon / 0.25 sunset / 0.5 midnight / 0.75 sunrise.
    The site boots at canonical high noon - the frozen image -
    then it starts to move.                                        */
-const DAY_LENGTH = 400;           // seconds for a full day
+const DAY_LENGTH = 500;           // seconds for a full day
 let cycleT = 0.0;                 // start at noon
 
 const KEYS = [
@@ -417,6 +417,65 @@ function terrainHeight(x, z){
   h +=  1.1 * Math.sin(x*0.045) * Math.cos(z*0.052);
   h +=  0.5 * Math.sin(x*0.11 + 1.7) * Math.sin(z*0.09);
   return h;
+}
+
+/* ---------------- Ground-conforming contact shadows ----------------
+   A flat disc on sloped ground floats on one side and buries itself
+   on the other, and a single-sided one vanishes when seen from below.
+   This drapes a subdivided plane over the real terrain and fades out
+   radially, so it follows the topology and reads from any angle.
+   DataTexture rather than canvas — iOS premultiplies canvas alpha. */
+const shadowTex = (function(){
+  const S = 64, data = new Uint8Array(S*S*4);
+  for (let y = 0; y < S; y++){
+    for (let x = 0; x < S; x++){
+      const dx = (x - (S-1)/2) / ((S-1)/2);
+      const dy = (y - (S-1)/2) / ((S-1)/2);
+      const d = Math.min(1, Math.hypot(dx, dy));
+      const i = (y*S + x)*4;
+      data[i] = data[i+1] = data[i+2] = 0;
+      data[i+3] = Math.round(Math.pow(1 - d, 1.8) * 255);
+    }
+  }
+  const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat);
+  t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearFilter;
+  t.generateMipmaps = false; t.needsUpdate = true;
+  return t;
+})();
+
+function groundShadow(cx, cz, radius, opacity, sx, sz){
+  sx = sx || 1; sz = sz || 1;
+  const SEG = 12;
+  const geo = new THREE.PlaneGeometry(radius*2*sx, radius*2*sz, SEG, SEG);
+  geo.rotateX(-Math.PI/2);
+  const pos = geo.attributes.position;
+  const base = terrainHeight(cx, cz);
+  for (let i = 0; i < pos.count; i++){
+    pos.setY(i, terrainHeight(cx + pos.getX(i), cz + pos.getZ(i)) - base + 0.08);
+  }
+  pos.needsUpdate = true;
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    map: shadowTex, transparent: true, opacity: opacity,
+    depthWrite: false, side: THREE.DoubleSide }));
+  m.position.set(cx, base, cz);
+  m.renderOrder = 1;
+  return m;
+}
+
+/* ---------------- Lay a flat object on sloped ground ----------------
+   Samples terrain either side to derive the surface normal, aligns the
+   object's face to it, then twists about that normal so it still sits
+   askew. Coordinates live in one place now, not two. */
+const _FACE = new THREE.Vector3(0, 0, 1);   // PlaneGeometry's own normal
+function layOnGround(mesh, x, z, spin, lift){
+  const e = 1.2;
+  const hL = terrainHeight(x - e, z), hR = terrainHeight(x + e, z);
+  const hB = terrainHeight(x, z - e), hF = terrainHeight(x, z + e);
+  const n = new THREE.Vector3(-(hR - hL) / (2*e), 1, -(hF - hB) / (2*e)).normalize();
+  mesh.position.set(x, terrainHeight(x, z) + (lift === undefined ? 0.06 : lift), z);
+  const align = new THREE.Quaternion().setFromUnitVectors(_FACE, n);
+  const twist = new THREE.Quaternion().setFromAxisAngle(n, spin || 0);
+  mesh.quaternion.copy(twist.multiply(align));
 }
 
 /* ---------------- Scene setup ---------------- */
@@ -1110,13 +1169,7 @@ const tvScreenMat = new THREE.ShaderMaterial({
   earR.position.set(0.9, 7.7, -0.6); earR.rotation.z = -0.42; earR.rotation.x = -0.1;
   group.add(earR);
 
-  /* shadow blob */
-  const sh = new THREE.Mesh(new THREE.CircleGeometry(4.4, 24),
-    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
-      opacity:0.25, depthWrite:false}));
-  sh.rotation.x = -Math.PI/2;
-  sh.position.set(tx, ty + 0.07, tz);
-  scene.add(sh);
+  scene.add(groundShadow(tx, tz, 4.4, 0.25));
 
   /* screen glow - the TV light on the grass at night */
   const light = new THREE.PointLight(0x9FB8E8, 0, 26, 2);
@@ -1334,15 +1387,7 @@ DESKTOP_EXPERIENCES.forEach(exp => {
   sprite.userData.baseY = groundY + 3.1;
   scene.add(sprite);
 
-  // soft contact shadow on the grass
-  const sh = new THREE.Mesh(
-    new THREE.CircleGeometry(1.5, 24),
-    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
-      opacity:0.22, depthWrite:false}));
-  sh.rotation.x = -Math.PI/2;
-  sh.position.set(x, groundY + 0.06, z);
-  scene.add(sh);
-  sprite.userData.shadow = sh;
+scene.add(groundShadow(x, z, 1.5, 0.22));
 
   icons.push(sprite);
 });
@@ -1427,15 +1472,10 @@ const cursorGlow = new THREE.PointLight(0xCBD6EC, 0, 34, 2);
   grp.position.set(gx, gy + 1.8, gz);        // tip end dips under the grass
   grp.rotation.set(-1.30, 2.3, 0.5);         // dropped, not placed
   scene.add(grp);
-  const sh = new THREE.Mesh(new THREE.CircleGeometry(5.8, 26),
-    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
-      opacity:0.24, depthWrite:false}));
-  sh.rotation.x = -Math.PI/2; sh.scale.set(1.5, 1, 0.8);
-  sh.position.set(gx + 1.2, gy + 0.07, gz + 1.5);
-  scene.add(sh);
+  scene.add(groundShadow(gx + 1.2, gz + 1.5, 5.8, 0.24, 1.5, 0.8));
 })();
 
-/* --- broken shortcut: SEAFR~1.LNK ---
+/* --- missing temp file: DREAMS~3.TMP ---
    Still floating. Never bobs. The 8.3 name is what the OS calls
    things it has half forgotten. */
 function drawBrokenIcon(){
@@ -1460,14 +1500,14 @@ function drawBrokenIcon(){
   c.fillStyle = '#2E5FC4'; c.font = '700 19px Tahoma, sans-serif';
   c.textAlign = 'center'; c.fillText('?', px+16, py+ph-8);
   c.font = '700 24px Tahoma, sans-serif';
-  c.fillStyle = 'rgba(0,0,0,.45)'; c.fillText('SEAFR~1.LNK', 130, 216);
-  c.fillStyle = '#D9DCE4';         c.fillText('SEAFR~1.LNK', 128, 214);
+  c.fillStyle = 'rgba(0,0,0,.45)'; c.fillText('DREAMS~3.TMP', 130, 216);
+  c.fillStyle = '#D9DCE4';         c.fillText('DREAMS~3.TMP', 128, 214);
   const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
   return tex;
 }
 (function buildBrokenShortcut(){
-  const exp = { id:'brokenlnk', file:'SEAFR~1.LNK', action:'broken',
-                frozen:true, pos:[14, 22] };
+  const exp = { id:'brokenlnk', file:'DREAMS~3.TMP', action:'unreadable',
+                frozen:true, pos:[-40, -94] };
   const [x, z] = exp.pos;
   const gy = terrainHeight(x, z);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -1477,12 +1517,8 @@ function drawBrokenIcon(){
   sp.userData.exp = exp;
   sp.userData.baseY = gy + 3.1;
   scene.add(sp);
-  const sh = new THREE.Mesh(new THREE.CircleGeometry(1.5, 24),
-    new THREE.MeshBasicMaterial({color:0x000000, transparent:true,
-      opacity:0.22, depthWrite:false}));
-  sh.rotation.x = -Math.PI/2;
-  sh.position.set(x, gy + 0.06, z);
-  scene.add(sh);
+  const sh = groundShadow(x, z, 1.5, 0.22);
+    scene.add(sh);
   sp.userData.shadow = sh;
   icons.push(sp);
 })();
@@ -1504,9 +1540,7 @@ function drawBrokenIcon(){
   const m1 = new THREE.Mesh(new THREE.PlaneGeometry(3.6, 3.6),
     new THREE.MeshLambertMaterial({map:t1, transparent:true,
       side:THREE.DoubleSide}));
-  const g1 = terrainHeight(24, -50);
-  m1.position.set(24, g1 + 0.14, -50);
-  m1.rotation.set(-Math.PI/2 + 0.09, 0, 0.55);
+  layOnGround(m1, -57, -91, 0.55);    // red-X, face up
   scene.add(m1);
 
   /* one face-down - a blank grey back. no explanation is offered */
@@ -1523,9 +1557,7 @@ function drawBrokenIcon(){
   const m2 = new THREE.Mesh(new THREE.PlaneGeometry(3.3, 3.3),
     new THREE.MeshLambertMaterial({map:t2, transparent:true,
       side:THREE.DoubleSide}));
-  const g2 = terrainHeight(-54, -40);
-  m2.position.set(-54, g2 + 0.12, -40);
-  m2.rotation.set(-Math.PI/2 - 0.06, 0, -1.1);
+  layOnGround(m2, -37, -103, -1.1);   // grey, face down
   scene.add(m2);
 })();
 
@@ -1843,6 +1875,12 @@ function openExperience(exp){
       'changed or moved, so this shortcut will no longer work properly.';
     dialog.classList.add('open'); return;
   }
+  if (exp.action === 'unreadable'){
+      dlgTitle.textContent = exp.file;
+      dlgBody.textContent = 'Windows cannot open this file. It may have been ' +
+        'created by a program that is no longer installed, or the file may be damaged.';
+      dialog.classList.add('open'); return;
+    }
   if (exp.action === 'about'){ aboutWin.classList.add('open'); return; }
   if (exp.action === 'contact'){ contactWin.classList.add('open'); return; }
   if (exp.action === 'tv'){ tvNext(); return; }
@@ -1854,6 +1892,7 @@ function openExperience(exp){
       'Add its URL to the DESKTOP_EXPERIENCES manifest and it opens from here.';
     dialog.classList.add('open');
   }
+  
 }
 const dialog = document.getElementById('dialog');
 const dlgTitle = document.getElementById('dlgTitle');
