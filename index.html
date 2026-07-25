@@ -1401,11 +1401,13 @@ scene.add(groundShadow(x, z, 1.5, 0.22));
 
 /* --- the fallen cursor ---
    The arrow, monumental, out of the screen-world and onto the far
-   slope. Real pixel-staircase geometry: one instanced draw for the
-   body, ONE silhouette hull for the whole arrow (scaled about its
-   own centroid) so the dark line lives only on the outer edge.
-   Low emissive keeps the body pale in shade. The Hourglass dreams
-   above it; this one stopped. */
+   slope. ONE continuous solid, traced from the bitmap's own outline
+   so the pixel staircase survives as the silhouette - not as seams
+   between blocks. A nested keyline (the same solid, inflated
+   slightly about its centroid, back-faced) gives the single dark
+   rim. Low emissive keeps the body pale in shade. The Hourglass
+   dreams above it; this one stopped. Further down-slope now, out of
+   sight from spawn - found, not announced. */
 const cursorGlow = new THREE.PointLight(0xCBD6EC, 0, 34, 2);
 (function buildFallenCursor(){
   const BMP = [
@@ -1428,49 +1430,78 @@ const cursorGlow = new THREE.PointLight(0xCBD6EC, 0, 34, 2);
     '........XX.',
   ];
   const P = 0.68;                       // metres per pixel, ~11.5m tall
-  const cells = [];
-  BMP.forEach((row, ry) => {
-    for (let cx = 0; cx < row.length; cx++)
-      if (row[cx] === 'X') cells.push([cx, ry]);
+  const DEPTH = P * 1.3;                // unchanged - keeps the mass
+
+  /* trace the bitmap's own silhouette into one closed loop of grid-
+     corner points. Works on any simply-connected pixel shape, so the
+     arrow can be re-bitmapped later without touching the geometry. */
+  function isFilled(r, c){
+    if (r < 0 || r >= BMP.length) return false;
+    const row = BMP[r];
+    if (c < 0 || c >= row.length) return false;
+    return row[c] === 'X';
+  }
+  function traceOutline(){
+    const edgeFrom = new Map();
+    const key = (x, y) => x + ',' + y;
+    const add = (a, b) => edgeFrom.set(key(a[0], a[1]), b);
+    for (let r = 0; r < BMP.length; r++){
+      for (let c = 0; c < BMP[r].length; c++){
+        if (!isFilled(r, c)) continue;
+        if (!isFilled(r - 1, c)) add([c, r], [c + 1, r]);         // top
+        if (!isFilled(r, c + 1)) add([c + 1, r], [c + 1, r + 1]); // right
+        if (!isFilled(r + 1, c)) add([c + 1, r + 1], [c, r + 1]); // bottom
+        if (!isFilled(r, c - 1)) add([c, r + 1], [c, r]);         // left
+      }
+    }
+    const start = edgeFrom.keys().next().value;
+    const loop = [];
+    let cur = start;
+    do {
+      const [x, y] = cur.split(',').map(Number);
+      loop.push([x, y]);
+      const next = edgeFrom.get(cur);
+      cur = key(next[0], next[1]);
+    } while (cur !== start);
+    return loop;
+  }
+
+  const shape = new THREE.Shape();
+  traceOutline().forEach(([gx, gy], i) => {
+    const x = (gx - 0.5) * P, y = -(gy - 0.5) * P;
+    if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
   });
-  const boxGeo = new THREE.BoxGeometry(P, P, P*1.3);
-  const white  = new THREE.MeshLambertMaterial({color:0xE8E8EC,
-    emissive:0x3E3E46});                // pale even in shade - screen-lit
-  const rim    = new THREE.MeshBasicMaterial({color:0x16161C,
-    side:THREE.BackSide});
-  const bodyIM = new THREE.InstancedMesh(boxGeo, white, cells.length);
-  const hullIM = new THREE.InstancedMesh(boxGeo, rim,  cells.length);
-  const dummy = new THREE.Object3D();
+  shape.closePath();
 
-  /* arrow centroid - the hull scales about this, not per cell */
-  let sx = 0, sy = 0;
-  cells.forEach(([cx, ry]) => { sx += cx; sy += ry; });
-  const ccx = (sx / cells.length) * P;
-  const ccy = -(sy / cells.length) * P;
+  const bodyGeo = new THREE.ExtrudeGeometry(shape,
+    {depth: DEPTH, bevelEnabled: false, curveSegments: 1});
+  bodyGeo.translate(0, 0, -DEPTH / 2);   // centre on z, matching the old boxes
 
-  cells.forEach(([cx, ry], i) => {
-    dummy.position.set(cx*P, -ry*P, 0);
-    dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-    bodyIM.setMatrixAt(i, dummy.matrix);
-    hullIM.setMatrixAt(i, dummy.matrix);
-  });
+  const white = new THREE.MeshLambertMaterial({color:0xE8E8EC,
+    emissive:0x3E3E46});                 // pale even in shade - screen-lit
+  const body = new THREE.Mesh(bodyGeo, white);
 
-  /* one silhouette hull for the whole arrow: offset the instances so
-     the centroid sits at the group origin, inflate the group, put it
-     back. The dark rim now exists only where the arrow meets the sky
-     - including the pixel staircase, which stays real geometry. */
-  hullIM.position.set(-ccx, -ccy, 0);
+  /* nested keyline: the same solid, inflated slightly about its own
+     centroid and back-faced, so the dark line falls only on the true
+     outer silhouette - the pixel staircase included, no seams. */
+  const bounds = new THREE.Box3().setFromBufferAttribute(bodyGeo.attributes.position);
+  const centroid = new THREE.Vector3();
+  bounds.getCenter(centroid);
+
+  const rim = new THREE.MeshBasicMaterial({color:0x16161C, side:THREE.BackSide});
+  const hull = new THREE.Mesh(bodyGeo, rim);
+  hull.position.copy(centroid).multiplyScalar(-1);
   const hullGrp = new THREE.Group();
-  hullGrp.add(hullIM);
+  hullGrp.add(hull);
   hullGrp.scale.set(1.05, 1.05, 1.12);
-  hullGrp.position.set(ccx, ccy, 0);
+  hullGrp.position.copy(centroid);
 
   const grp = new THREE.Group();
-  grp.add(hullGrp); grp.add(bodyIM); grp.add(cursorGlow);
-  const gx = -46, gz = -80;
+  grp.add(hullGrp); grp.add(body); grp.add(cursorGlow);
+  const gx = -46, gz = -110;             // further down-slope, clear of the hill crest sightline from spawn
   const gy = terrainHeight(gx, gz);
-  grp.position.set(gx, gy + 1.8, gz);        // tip end dips under the grass
-  grp.rotation.set(-1.30, 2.3, 0.5);         // dropped, not placed
+  grp.position.set(gx, gy + 9.2, gz);        // tip end dips under the grass
+  grp.rotation.set(-1.30, 2.15, 0.42);       // dropped, not placed - eased for balance
   scene.add(grp);
   scene.add(groundShadow(gx + 1.2, gz + 1.5, 5.8, 0.24, 1.5, 0.8));
 })();
