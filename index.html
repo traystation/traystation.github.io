@@ -193,7 +193,7 @@ font-family:inherit;line-height:1;padding:2px;}
   <div class="foot">Copyright &copy; 2026 Tracer Ital</div>
 </div>
 
-<div id="hint">Drag to look &nbsp;&middot;&nbsp; W A S D to walk</div>
+<div id="hint">Drag to look &nbsp;&middot;&nbsp; W A S D to walk &nbsp;&middot;&nbsp; Arrows to turn</div>
 <div id="prompt"></div>
 
 <div id="stick"><div class="nub"></div></div>
@@ -2163,12 +2163,16 @@ function animate(){
 
   /* --- movement --- */
   const speed = 10.5;
+  const TURN_SPEED = 2.0;   // rad/s at full stick deflection
   let mx = 0, mz = 0;
   if (keys['w'] || keys['arrowup'])    mz -= 1;
   if (keys['s'] || keys['arrowdown'])  mz += 1;
-  if (keys['a'] || keys['arrowleft'])  mx -= 1;
-  if (keys['d'] || keys['arrowright']) mx += 1;
-  mx += joyVec.x; mz += joyVec.y;
+  if (keys['a']) mx -= 1;                          // WASD strafes - familiar to keyboard/gamer habits
+  if (keys['d']) mx += 1;
+  if (keys['arrowleft'])  player.yaw += TURN_SPEED * dt;   // arrows turn instead - matches the stick
+  if (keys['arrowright']) player.yaw -= TURN_SPEED * dt;
+  mz += joyVec.y;                              // stick: forward / back
+  player.yaw -= joyVec.x * TURN_SPEED * dt;    // stick: turn, not strafe (sign matches drag-look below)
   const mlen = Math.hypot(mx, mz);
   const isMoving = mlen > 0.01;
   if (isMoving){
