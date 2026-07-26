@@ -57,6 +57,8 @@ background:rgba(10,20,50,.45);border:1px solid rgba(255,255,255,.25);
 padding:7px 12px;border-radius:3px;backdrop-filter:blur(3px);
 transition:opacity 1.2s ease;pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.6);}
 #hint.gone{opacity:0;}
+body.touch #hint{left:50%;top:auto;bottom:172px;transform:translateX(-50%);
+font-size:14px;padding:9px 16px;text-align:center;max-width:82vw;}
 #prompt{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:20;
 color:#fff;font-size:13px;background:rgba(10,20,50,.55);
 border:1px solid rgba(255,255,255,.3);padding:8px 16px;border-radius:3px;
@@ -1500,7 +1502,7 @@ const cursorGlow = new THREE.PointLight(0xCBD6EC, 0, 34, 2);
   grp.add(hullGrp); grp.add(body); grp.add(cursorGlow);
   const gx = -46, gz = -110;             // further down-slope, clear of the hill crest sightline from spawn
   const gy = terrainHeight(gx, gz);
-  grp.position.set(gx, gy + 9.2, gz);        // tip end dips under the grass
+  grp.position.set(gx, gy + 9.2, gz);      // tip end dips under the grass - spearhead angle
   grp.rotation.set(-1.30, 2.15, 0.42);       // dropped, not placed - eased for balance
   scene.add(grp);
   scene.add(groundShadow(gx + 1.2, gz + 1.5, 5.8, 0.24, 1.5, 0.8));
@@ -1798,7 +1800,22 @@ let dragging = false, lastPX = 0, lastPY = 0, dragDist = 0;
 let joyVec = {x:0, y:0};
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+/* hint dismisses on a real success signal (first working drag, walk
+   key, or joystick move) rather than a flat clock - a fallback timer
+   still covers anyone who never touches a control at all. */
+let hintDismissed = false;
+function dismissHint(){
+  if (hintDismissed) return;
+  hintDismissed = true;
+  const el = document.getElementById('hint');
+  if (el) el.classList.add('gone');
+}
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+  if ('wasd'.includes(k)) dismissHint();
+});
 addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
 
 canvas.addEventListener('pointerdown', e => {
@@ -1817,6 +1834,7 @@ canvas.addEventListener('pointermove', e => {
   player.yaw   -= dx * 0.0042;
   player.pitch -= dy * 0.0036;
   player.pitch = Math.max(-1.2, Math.min(0.9, player.pitch));
+  if (dragDist > 7) dismissHint();
 });
 canvas.addEventListener('pointerup', e => {
   canvas.classList.remove('dragging');
@@ -1824,13 +1842,34 @@ canvas.addEventListener('pointerup', e => {
   dragging = false;
 });
 
-/* Mobile joystick */
+/* Mobile joystick - floating: a touch anywhere in the lower-left zone
+   activates it under the thumb, instead of requiring a precise tap on
+   the small visible circle. The visible circle stays as a resting
+   affordance; this just stops an imprecise first touch from landing
+   in the dead zone between "excluded from look-drag" and "missed the
+   stick's exact hitbox". */
 const stick = document.getElementById('stick');
 const nub = stick.querySelector('.nub');
 let joyId = null;
 if ('ontouchstart' in window) document.body.classList.add('touch');
-stick.addEventListener('touchstart', e => {
-  joyId = e.changedTouches[0].identifier; e.preventDefault();
+if (document.body.classList.contains('touch')){
+  const hintEl = document.getElementById('hint');
+  if (hintEl) hintEl.textContent = 'Drag to look   \u00b7   Use the stick, bottom-left, to walk';
+}
+
+function inJoyZone(x, y){
+  return x < innerWidth*0.4 && y > innerHeight*0.5;
+}
+addEventListener('touchstart', e => {
+  if (joyId !== null) return;                 // already tracking a touch
+  const t = e.changedTouches[0];
+  if (!inJoyZone(t.clientX, t.clientY)) return;
+  joyId = t.identifier;
+  stick.style.left = (t.clientX - 48) + 'px';
+  stick.style.top  = (t.clientY - 48) + 'px';
+  stick.style.bottom = 'auto';
+  dismissHint();
+  e.preventDefault();
 }, {passive:false});
 addEventListener('touchmove', e => {
   for (const t of e.changedTouches){
@@ -1842,6 +1881,7 @@ addEventListener('touchmove', e => {
     if (m > 1){ vx/=m; vy/=m; }
     joyVec.x = vx; joyVec.y = vy;
     nub.style.transform = `translate(calc(-50% + ${vx*26}px), calc(-50% + ${vy*26}px))`;
+    if (m > 0.15) dismissHint();
   }
 }, {passive:false});
 addEventListener('touchend', e => {
@@ -1849,12 +1889,14 @@ addEventListener('touchend', e => {
     if (t.identifier === joyId){
       joyId = null; joyVec.x = joyVec.y = 0;
       nub.style.transform = 'translate(-50%,-50%)';
+      stick.style.left = ''; stick.style.top = ''; stick.style.bottom = '';
     }
   }
 });
 addEventListener('touchcancel', () => {
   joyId = null; joyVec.x = joyVec.y = 0;
   nub.style.transform = 'translate(-50%,-50%)';
+  stick.style.left = ''; stick.style.top = ''; stick.style.bottom = '';
 });
 canvas.addEventListener('pointercancel', () => {
   dragging = false; canvas.classList.remove('dragging');
@@ -2014,7 +2056,7 @@ function enterValley(){
   if (QS.has('snow')){ weather.state = 'RAIN';
     weather.rainTarget = 0.7; weather.timer = 90; }
   boot.classList.add('gone');
-  setTimeout(() => document.getElementById('hint').classList.add('gone'), 9000);
+  setTimeout(dismissHint, 24000);   // fallback only - normally dismissed by a real move
 }
 boot.addEventListener('click', enterValley);
 addEventListener('keydown', e => { if (e.key === 'Enter') enterValley(); });
