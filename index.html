@@ -2266,7 +2266,7 @@ function animate(){
   }
   /* broadcast volume falls off with distance; wind ducks under it */
   if (tv.mode === 'video'){
-    const prox = Math.max(0, Math.min(1, 1 - (tvD - 7) / 26));
+    const prox = Math.max(0, Math.min(1, 1 - (tvD - 7) / 101));
     audio.setTvVolume(0.8 * prox);
     audio.setDuck(prox * 0.9);
   } else {
