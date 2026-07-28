@@ -255,15 +255,17 @@ const CONTACT_EMAIL = 'tracer@nothingbuttalent.co.uk';
 const ADRENALIN_URL = 'https://www.adrenalinphotographic.com/photos/tracer-ital-2/';
 
 /* The broadcast. Files live in /media/. Order = channel number. */
+/* A channel is a filename or a list of them. A list rotates on the
+   break clock, so the film changes during the adverts - which is when
+   a programme changes on real television, and means tuning back after
+   a break finds something new. Single-film channels are placeholders
+   waiting for company, not a different kind of thing. */
 const TV_CHANNELS = [
-  'skepta_43.mp4',
-  'caradela_43.mp4',
-  'yungblud_43.mp4',
-  'indigoboy_43.mp4',
-  'numero_43.mp4',
-  'daphnegroeneveld_43.mp4',
-  'schon-goldfinger_43.mp4',
-  'shudu-samsung_43.mp4',
+  ['skepta_43.mp4', 'yungblud_43.mp4'],                            // music
+  ['indigoboy_43.mp4', 'numero_43.mp4', 'schon-goldfinger_43.mp4'],// editorial
+  'caradela_43.mp4',                                               // + talent
+  'shudu-samsung_43.mp4',                                          // + conceptual
+  'daphnegroeneveld_43.mp4',                                       // + beauty / BTS
 ];
 const TV_POS = [4, -32];          // where the television sits in the grass
 
@@ -1363,25 +1365,55 @@ function drawClock(ctx, t, valleyT){
     ctx.stroke();
   }
 
-  /* second hand - real seconds, discrete ticks, the way they did */
-  const sec = Math.floor(Date.now()/1000) % 60;
-  const sa = sec/60 * Math.PI*2 - Math.PI/2;
-  ctx.strokeStyle = '#e24b3a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  /* Three hands, three wrong rates, none of them pretending.
+     Hour hand keeps valley time: one sweep per 250 real seconds.
+     Minute hand completes a revolution every valley hour, about 21
+     real seconds, so it visibly travels while you watch.
+     The second hand cannot run at valley rate - a valley second is
+     under six milliseconds and the hand would simply not be there.
+     It runs at valley rate divided by six: one sweep every two
+     seconds, the fastest the display can carry before it stops
+     reading as a hand at all. Smeared, because at that speed a real
+     one would be. */
+  const hours = (12 + valleyT * 24) % 24;
+
+  /* minute hand - one revolution per valley hour */
+  const ma = (hours % 1) * Math.PI*2 - Math.PI/2;
+  ctx.strokeStyle = '#cfe6f0'; ctx.lineWidth = 5; ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(cx - Math.cos(sa)*16, cy - Math.sin(sa)*16);
-  ctx.lineTo(cx + Math.cos(sa)*(R-12), cy + Math.sin(sa)*(R-12));
+  ctx.moveTo(cx - Math.cos(ma)*13, cy - Math.sin(ma)*13);
+  ctx.lineTo(cx + Math.cos(ma)*R*0.80, cy + Math.sin(ma)*R*0.80);
   ctx.stroke();
 
   /* hour hand - valley time */
-  const hours = (12 + valleyT*24) % 24;
   const ha = (hours % 12)/12 * Math.PI*2 - Math.PI/2;
   ctx.strokeStyle = '#eef6f9'; ctx.lineWidth = 8;
   ctx.beginPath(); ctx.moveTo(cx, cy);
   ctx.lineTo(cx + Math.cos(ha)*R*0.5, cy + Math.sin(ha)*R*0.5); ctx.stroke();
+
+  /* second hand - racing, and smeared for it */
+  const SWEEP = 2.08;                       // real seconds per revolution
+  const sa = ((Date.now()/1000) % SWEEP)/SWEEP * Math.PI*2 - Math.PI/2;
+  for (let i = 12; i >= 1; i--){
+    const a = sa - i * 0.075;
+    ctx.strokeStyle = 'rgba(226,75,58,' + (0.30 - i*0.021) + ')';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(a)*15, cy - Math.sin(a)*15);
+    ctx.lineTo(cx + Math.cos(a)*(R-13), cy + Math.sin(a)*(R-13));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#e24b3a'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - Math.cos(sa)*15, cy - Math.sin(sa)*15);
+  ctx.lineTo(cx + Math.cos(sa)*(R-13), cy + Math.sin(sa)*(R-13));
+  ctx.stroke();
   ctx.lineCap = 'butt';
 
   ctx.fillStyle = '#eef6f9';
   ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#e24b3a';
+  ctx.beginPath(); ctx.arc(cx, cy, 3, 0, Math.PI*2); ctx.fill();
 
   cg(ctx, 'TRAYSTATION', { y: CARD_H-26, size: 20, track: 7,
                            fill:'#9ecadd', xs: 0.78 });
@@ -1553,7 +1585,8 @@ function drawClosedown(ctx, t){
    deliberately the thinner half. */
 const CARDS = [
   { id:'bars',       dur:6,  hours:[0,24], sound:'tone',  draw:drawBars },
-  { id:'clock',      dur:8,  hours:[0,24], sound:'hum',   draw:drawClock },
+  { id:'clock',      dur:8,  hours:[0,24], sound:'hum',   draw:drawClock,
+    fps:30 },   // the second hand strobes at 15
   { id:'difficulty', dur:5,  hours:[0,24], sound:'hiss',  draw:drawDifficulty },
   { id:'hold',       dur:12, hours:[19,8], draw:drawHold,
     /* strings in the evening; after valley-midnight the bed changes
@@ -1816,11 +1849,12 @@ function playVideo(path, seek, loop){
 /* A channel entry is either a filename or a list of them. A list
    rotates on the same wall clock everything else runs on, so a
    channel has a schedule rather than a single looping tape. */
-const ROTATE = 420;   // real seconds a channel stays on one film
 function programmeFile(){
   const e = TV_CHANNELS[tv.channel];
   if (typeof e === 'string') return e;
-  const n = Math.floor((Date.now()/1000 - BREAK.EPOCH) / ROTATE);
+  /* keyed to the break index, so a channel changes film across the
+     adverts rather than on a timer of its own */
+  const n = Math.floor((Date.now()/1000 - BREAK.EPOCH) / BREAK.PERIOD);
   return e[((n % e.length) + e.length) % e.length];
 }
 function startProgramme(){
@@ -1939,7 +1973,7 @@ function bcUpdate(dt){
        judder is period-correct, so this is taste as much as thrift -
        it also cuts the texture upload to a quarter. */
     bc.drawAcc = (bc.drawAcc || 0) + dt;
-    if (bc.drawAcc >= 1/15){
+    if (bc.drawAcc >= 1/(bc.slot.card.fps || 15)){
       bc.drawAcc = 0;
       bc.slot.card.draw(cardCtx, bc.slotT, cycleT);
       cardTex.needsUpdate = true;
