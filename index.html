@@ -1755,7 +1755,8 @@ const tvScreenMat = new THREE.ShaderMaterial({
    of a break and the programme starts under you, which is the most
    television thing the set does.
    ================================================================ */
-const bc = { kind:'off', slot:null, slotT:0, queue:[], pending:null };
+const bc = { kind:'off', slot:null, slotT:0, queue:[], pending:null,
+             progIdx:0, progNext:null };
 let pendingSeek = null;
 
 function valleyHour(){ return (12 + cycleT * 24) % 24; }
@@ -1827,6 +1828,21 @@ function buildBreak(idx, chan){
   return seq;
 }
 
+/* Join a break already in progress: walk its running order to wherever
+   the clock says it is and start there. Returns false if the offset
+   falls past the end of the assembled order, in which case the caller
+   should just play the programme. */
+function enterBreak(br){
+  bc.queue = buildBreak(br.idx, tv.channel);
+  let off = br.offset;
+  while (bc.queue.length > 1 && off >= bc.queue[0].dur){
+    off -= bc.queue[0].dur; bc.queue.shift();
+  }
+  if (off >= bc.queue[0].dur){ bc.queue.length = 0; return false; }
+  startSlot(bc.queue[0], off);
+  return true;
+}
+
 function showChannel(){
   if (witch.state === 'active'){
     tv.led.material.color.setHex(0x802020);   // half-lit. wrong.
@@ -1849,19 +1865,53 @@ function playVideo(path, seek, loop){
 /* A channel entry is either a filename or a list of them. A list
    rotates on the same wall clock everything else runs on, so a
    channel has a schedule rather than a single looping tape. */
-function programmeFile(){
+function channelFilms(){
   const e = TV_CHANNELS[tv.channel];
-  if (typeof e === 'string') return e;
-  /* keyed to the break index, so a channel changes film across the
-     adverts rather than on a timer of its own */
+  return typeof e === 'string' ? [e] : e;
+}
+/* Where in the running order the channel is when you arrive. Keyed to
+   the break index so every visitor tuning in at the same moment gets
+   the same film - the channel is somewhere specific whether or not
+   anyone is watching. */
+function programmeIndex(){
   const n = Math.floor((Date.now()/1000 - BREAK.EPOCH) / BREAK.PERIOD);
-  return e[((n % e.length) + e.length) % e.length];
+  const len = channelFilms().length;
+  return ((n % len) + len) % len;
 }
 function startProgramme(){
   bc.kind = 'programme'; bc.slot = null; bc.queue.length = 0;
   audio.cardSound('none');
+  const films = channelFilms();
+  /* after a break at a junction, carry on where the channel was going;
+     otherwise ask the clock where this channel is */
+  bc.progIdx = bc.progNext === null ? programmeIndex()
+                                    : bc.progNext % films.length;
+  bc.progNext = null;
   tv.mode = 'static'; audio.setStatic(true);
-  playVideo('media/' + programmeFile(), 'broadcast', true);
+  /* Only a one-film channel loops. Anywhere there is something to
+     follow, let the film end so the channel can move on. */
+  playVideo('media/' + films[bc.progIdx], 'broadcast', films.length < 2);
+}
+
+/* The film ended. This is the junction between programmes, which is
+   exactly where television puts its adverts - so if the broadcast is
+   in a break right now, take it, and resume the running order after.
+   Nothing is ever cut away from mid-film; the break only ever lands
+   in the gap. If no break is running, hard cut to the next programme,
+   no static, because this is a junction inside one channel rather
+   than a retune. */
+function nextProgramme(){
+  const films = channelFilms();
+  if (films.length < 2) return;
+  const next = (bc.progIdx + 1) % films.length;
+  const br = breakNow();
+  if (br){
+    bc.progNext = next;
+    if (enterBreak(br)) return;
+    bc.progNext = null;
+  }
+  bc.progIdx = next;
+  playVideo('media/' + films[bc.progIdx], 0, false);
 }
 
 function startSlot(slot, t0){
@@ -1900,6 +1950,7 @@ function tvSetChannel(i){
      burst, the tune-in is cancelled every time while the old queue
      plays on, so the set appears stuck on a channel you have left. */
   bc.kind = 'off'; bc.slot = null; bc.queue.length = 0; bc.slotT = 0;
+  bc.progNext = null;            // a new channel asks the clock, not the last one
   pendingSeek = null;
   audio.cardSound('none');       // before setStatic: it clears the hiss
   tv.mode = 'static';
@@ -1915,15 +1966,7 @@ function tvSetChannel(i){
     const br = QS.has('break')
       ? { idx: Math.floor(Date.now()/1000/BREAK.PERIOD), offset: 0 }
       : breakNow();
-    if (!br){ startProgramme(); return; }
-    /* mid-break: walk the running order to wherever it already is */
-    bc.queue = buildBreak(br.idx, tv.channel);
-    let off = br.offset;
-    while (bc.queue.length > 1 && off >= bc.queue[0].dur){
-      off -= bc.queue[0].dur; bc.queue.shift();
-    }
-    if (off >= bc.queue[0].dur){ startProgramme(); return; }
-    startSlot(bc.queue[0], off);
+    if (!br || !enterBreak(br)) startProgramme();
   }, 380);
 }
 
@@ -1956,12 +1999,16 @@ tvVideo.addEventListener('playing', tvReveal);
 tvVideo.addEventListener('error', () => {
   if (bc.kind === 'card') return;                  // not ours to report
   if (bc.kind === 'spot'){ nextSlot(); return; }   // a dead spot is skipped
+  if (bc.kind === 'programme' && channelFilms().length > 1){
+    nextProgramme(); return;                       // nor does one strand a channel
+  }
   tv.mode = 'static';
   if (witch.state === 'active') return;            // silent failure after 3
   setOsd('NO SIGNAL');
 });
 tvVideo.addEventListener('ended', () => {
   if (bc.kind === 'spot') nextSlot();
+  else if (bc.kind === 'programme') nextProgramme();
 });
 
 /* the only per-frame work: run down the current slot, draw the card */
@@ -2016,7 +2063,7 @@ function tvNext(){
 }
 function tvOff(){
   tv.mode = 'off';
-  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0;
+  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0; bc.progNext = null;
   pendingSeek = null;
   if (tv.burstTimer) clearTimeout(tv.burstTimer);
   tvVideo.pause(); tvVideo.removeAttribute('src'); tvVideo.load();
