@@ -754,7 +754,7 @@ function weatherStep(dt){
       weather.bolt = 0.85;
       flashEl.style.opacity = reduceMotion ? 0.15 : 0.38;
       setTimeout(() => flashEl.style.opacity = 0, 70);
-      audio.thunder(1400 + Math.random()*3200);
+      audio.thunder(380 + Math.random()*400);
       weather.boltTimer = 4 + Math.random()*9;
     }
   }
@@ -969,21 +969,62 @@ const audio = (function(){
     g.gain.exponentialRampToValueAtTime(0.0003, t0 + 0.085);
     src.connect(bp); bp.connect(g); g.connect(master);
   }
+  /* Thunder as rumble, not report.
+     The old shape reached full level in 60ms, and a transient that
+     fast on filtered noise is ordnance rather than weather. This one
+     has no transient at all: it swells in over a third of a second
+     and then rolls away in uneven waves, the way sound arriving from
+     different lengths of the same channel actually does. The noise is
+     played back slow to weight it, the lowpass sits an octave lower
+     throughout, and a sub layer underneath carries the body that the
+     filtered noise on its own can't. */
   function thunder(delayMs){
     if (!ctx || muted) return;
     setTimeout(() => {
       if (!ctx || muted) return;
       const t0 = ctx.currentTime;
-      const src = ctx.createBufferSource(); src.buffer = fxBuf;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
-      lp.frequency.setValueAtTime(420, t0);
-      lp.frequency.exponentialRampToValueAtTime(65, t0 + 2.4);
+      const dur = 4.4 + Math.random()*1.8;
+
+      const src = ctx.createBufferSource();
+      src.buffer = fxBuf; src.loop = true;
+      src.playbackRate.value = 0.5 + Math.random()*0.14;
+
+      const hp = ctx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 22;   // keep it off the cone
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.Q.value = 0.5;
+      lp.frequency.setValueAtTime(210, t0);
+      lp.frequency.exponentialRampToValueAtTime(52, t0 + dur*0.85);
+
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(0.62, t0 + 0.06);
-      g.gain.exponentialRampToValueAtTime(0.0008, t0 + 2.9);
-      src.connect(lp); lp.connect(g); g.connect(master);
-      src.start(t0); src.stop(t0 + 3);
+      g.gain.exponentialRampToValueAtTime(0.42, t0 + 0.34);   // arrival, no crack
+
+      /* the roll: uneven swells, each quieter than the last on average */
+      let t = t0 + 0.34, lvl = 0.42;
+      const end = t0 + dur - 0.7;
+      for (;;){
+        const nt = t + 0.45 + Math.random()*0.75;
+        if (nt >= end) break;
+        lvl = Math.max(0.015, lvl * (0.5 + Math.random()*0.62));
+        g.gain.exponentialRampToValueAtTime(lvl, nt);
+        t = nt;
+      }
+      g.gain.exponentialRampToValueAtTime(0.0005, t0 + dur);
+
+      src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master);
+      src.start(t0); src.stop(t0 + dur + 0.1);
+
+      /* the weight underneath */
+      const sub = ctx.createOscillator(); sub.type = 'sine';
+      sub.frequency.setValueAtTime(48 + Math.random()*10, t0);
+      sub.frequency.exponentialRampToValueAtTime(29, t0 + dur);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, t0);
+      sg.gain.exponentialRampToValueAtTime(0.14, t0 + 0.55);
+      sg.gain.exponentialRampToValueAtTime(0.0004, t0 + dur*0.92);
+      sub.connect(sg); sg.connect(master);
+      sub.start(t0); sub.stop(t0 + dur);
     }, delayMs);
   }
   function unlock(){
