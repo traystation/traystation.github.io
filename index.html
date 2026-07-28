@@ -268,6 +268,27 @@ const TV_CHANNELS = [
 const TV_POS = [4, -32];          // where the television sits in the grass
 
 /* ================================================================
+   THE BREAK
+   Programmes run on a clock the visitor doesn't control. So do the
+   ad breaks - and they run on ONE clock, shared by every channel,
+   so a break catches the whole broadcast at once. Flip during a
+   break and it's adverts all the way down, a different one each
+   time. Nobody is watching. It runs anyway.
+
+   Films live in /spots/. Everything else is drawn - see THE CARDS.
+   ================================================================ */
+const TV_SPOTS = [
+  { file:'turbovac.mp4', dur:62, hours:[0,24] },
+];
+const BREAK = {
+  PERIOD: 300,     // real seconds between breaks
+  LENGTH: 96,      // real seconds a break lasts - must comfortably
+                   // exceed the longest spot, or the spot eats the
+                   // whole window and the cards never surface
+  EPOCH: 0,        // absolute; every visitor shares it
+};
+
+/* ================================================================
    THE WITCHING HOUR - configuration
    Seeded by the real-world date: roughly one date in ONE_IN
    qualifies. On a qualifying date, the first time valley time
@@ -1018,8 +1039,74 @@ const audio = (function(){
       o.start(t0 + st); o.stop(t0 + st + 3);
     });
   }
+  /* --- the cards' own sound ---
+     Test tone, mains hum at fifty (this is a British set), and the
+     hold loop. If cards/hold.mp3 isn't there yet the muzak falls
+     back to a slow detuned chord - wrong in the right way, and
+     replaceable by dropping the file in. */
+  let cardBus = null, cardNodes = null, cardEl = null, cardSrc = null;
+  function cardStop(){
+    if (cardNodes){
+      cardNodes.forEach(n => { try { n.stop(); } catch(e){} });
+      cardNodes = null;
+    }
+    if (cardEl){ try { cardEl.pause(); } catch(e){} }
+  }
+  function chordBed(){
+    const g = ctx.createGain(); g.gain.value = 0.06;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 1400; lp.Q.value = 0.4;
+    g.connect(lp); lp.connect(cardBus);
+    const ns = [];
+    [220, 261.63, 329.63, 392.44].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      o.type = i === 0 ? 'triangle' : 'sine';
+      o.frequency.value = f * (1 + (i % 2 ? 0.0032 : -0.0028));
+      o.connect(g); o.start(); ns.push(o);
+    });
+    cardNodes = ns;
+  }
+  function cardSound(kind){
+    if (!ctx) return;
+    cardStop();
+    setStatic(kind === 'hiss');
+    if (!cardBus){ cardBus = ctx.createGain(); cardBus.gain.value = 0; cardBus.connect(master); }
+    if (kind === 'tone'){
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 1000;
+      const g = ctx.createGain(); g.gain.value = 0.03;
+      o.connect(g); g.connect(cardBus); o.start(); cardNodes = [o];
+    } else if (kind === 'hum'){
+      const g = ctx.createGain(); g.gain.value = 0.085;
+      const o1 = ctx.createOscillator(); o1.type = 'sine'; o1.frequency.value = 50;
+      const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 100;
+      const g2 = ctx.createGain(); g2.gain.value = 0.32;
+      o2.connect(g2); g2.connect(g); o1.connect(g); g.connect(cardBus);
+      o1.start(); o2.start(); cardNodes = [o1, o2];
+    } else if (kind === 'muzak'){
+      if (!cardEl){
+        cardEl = document.createElement('audio');
+        cardEl.loop = true; cardEl.preload = 'none';
+        cardEl.src = 'cards/hold.mp3';
+      }
+      let routed = false;
+      try {
+        if (!cardSrc) cardSrc = ctx.createMediaElementSource(cardEl);
+        cardSrc.connect(cardBus); routed = true;
+      } catch(e){}
+      if (!routed){ chordBed(); return; }
+      const p = cardEl.play();
+      if (p && p.catch) p.catch(() => { if (!cardNodes) chordBed(); });
+    }
+    /* 'none' and 'hiss' leave the bus empty on purpose - closedown
+       ends in silence, and silence after a tone is the whole gag */
+  }
+  function setCardVolume(v){
+    if (cardBus && ctx) cardBus.gain.setTargetAtTime(v, ctx.currentTime, 0.12);
+  }
+
   return { init, setMuted, update, thunder, startup, step, unlock,
            setStatic, setDuck, attachVideo, setTvVolume,
+           cardSound, setCardVolume,
            setWitchDamp, witchStart, witchEnd, witchChime,
            isMuted: () => muted };
 })();
@@ -1063,10 +1150,364 @@ function setOsd(text){
   tv.osdA = 1;
 }
 
+/* ================================================================
+   THE CARDS
+   The seams of the broadcast, drawn rather than filmed: no files,
+   no bandwidth, and every visitor sees the same frame at the same
+   moment because each card is a pure function of the clock.
+
+   Two slots take an image if one is present in /cards/ and fall
+   back to drawn art if it isn't - testcard.jpg and postcard.jpg.
+   Nothing breaks while they're missing.
+   ================================================================ */
+const CARD_W = 512, CARD_H = 384;
+const cardCanvas = document.createElement('canvas');
+cardCanvas.width = CARD_W; cardCanvas.height = CARD_H;
+const cardCtx = cardCanvas.getContext('2d');
+cardCtx.fillStyle = '#000'; cardCtx.fillRect(0, 0, CARD_W, CARD_H);
+const cardTex = new THREE.CanvasTexture(cardCanvas);
+cardTex.generateMipmaps = false;
+cardTex.minFilter = THREE.LinearFilter; cardTex.magFilter = THREE.LinearFilter;
+
+/* art canvas - the postcard's photograph, composited afterwards */
+const artCanvas = document.createElement('canvas');
+artCanvas.width = 340; artCanvas.height = 236;
+const artCtx = artCanvas.getContext('2d');
+
+/* Optional image slots. Absent = drawn fallback, silently.
+
+   The probe is not paranoia. Opened over file://, a browser treats a
+   local image as cross-origin, so drawing one TAINTS this canvas -
+   and WebGL then refuses a tainted canvas as a texture source, so
+   every upload afterwards throws and the screen holds its last good
+   frame forever. Served over http, same origin, this always passes
+   and the image is used. So: test the taint before trusting the
+   image, and fall back to the drawn art if it would poison the set. */
+const cardImg = { testcard:null, postcard:null };
+['testcard','postcard'].forEach(k => {
+  const im = new Image();
+  im.onload = () => {
+    try {
+      const p = document.createElement('canvas'); p.width = p.height = 2;
+      const pc = p.getContext('2d');
+      pc.drawImage(im, 0, 0, 2, 2);
+      pc.getImageData(0, 0, 1, 1);     // throws if the image taints
+      cardImg[k] = im;
+    } catch (e) {
+      console.warn('cards/' + k + '.jpg ignored - it would taint the canvas. '
+        + 'Serve over http rather than opening the file directly.');
+    }
+  };
+  im.src = 'cards/' + k + '.jpg';
+});
+
+/* halftone tile, built once */
+const dotTile = (function(){
+  const c = document.createElement('canvas'); c.width = c.height = 4;
+  const x = c.getContext('2d');
+  x.fillStyle = 'rgba(0,0,0,0.5)';
+  x.beginPath(); x.arc(1.4, 1.4, 1.05, 0, Math.PI*2); x.fill();
+  return c;
+})();
+
+let dotPat = null;
+function chash(n){ const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+function cease(x){ return x<0?0 : x>1?1 : x*x*(3-2*x); }
+function inHours(h, w){ return w[0] < w[1] ? (h >= w[0] && h < w[1]) : (h >= w[0] || h < w[1]); }
+
+/* ---- character generator type ----
+   Not Courier. The era's caption hardware set heavy condensed sans
+   with a hard black shadow thrown down-right, no blur, sometimes a
+   keyline. Condensing is done by transform so it lands the same on
+   every device instead of depending on a narrow face being present. */
+function cg(ctx, text, o){
+  const size = o.size || 24, xs = o.xs === undefined ? 0.82 : o.xs;
+  const track = o.track || 0, weight = o.weight || 700;
+  ctx.save();
+  ctx.font = weight + ' ' + size + 'px Arial,Helvetica,sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  let w = 0;
+  for (const ch of text) w += ctx.measureText(ch).width + track;
+  w -= track;
+  const x0 = o.x !== undefined ? o.x / xs : (CARD_W - w * xs) / 2 / xs;
+  ctx.translate(0, o.y); ctx.scale(xs, 1);
+  function run(dx, dy, fill){
+    ctx.fillStyle = fill; let x = x0 + dx;
+    for (const ch of text){ ctx.fillText(ch, x, dy); x += ctx.measureText(ch).width + track; }
+  }
+  if (o.keyline){
+    const k = o.keyline;
+    run(-2/xs, 0, k); run(2/xs, 0, k); run(0, -2, k); run(0, 2, k);
+  }
+  if (o.shadow !== false) run(3/xs, 3, o.shadowFill || 'rgba(0,0,0,0.85)');
+  run(0, 0, o.fill || '#f4f6f0');
+  ctx.restore();
+}
+
+function cgrain(ctx, t, amt){
+  const f = Math.floor(t * 12);
+  for (let i = 0; i < 24; i++){
+    const y = chash(f*31 + i) * CARD_H, x = chash(f*17 + i*3) * CARD_W;
+    const w = 1 + chash(f*7 + i) * 14;
+    ctx.fillStyle = 'rgba(255,255,255,' + (amt * (0.05 + chash(i+f)*0.09)) + ')';
+    ctx.fillRect(x, y, w, 1);
+  }
+}
+
+/* ---- 1. TRADE TEST ---------------------------------------------
+   Drawn bars until testcard.jpg exists, then the real thing. */
+const EBU = ['#c0c0c0','#c0c000','#00c0c0','#00c000','#c000c0','#c00000','#0000c0'];
+function drawBars(ctx, t){
+  const im = cardImg.testcard;
+  if (im){
+    const s = Math.max(CARD_W/im.width, CARD_H/im.height);
+    const w = im.width*s, h = im.height*s;
+    ctx.drawImage(im, (CARD_W-w)/2, (CARD_H-h)/2, w, h);
+  } else {
+    const bw = CARD_W/7;
+    for (let i = 0; i < 7; i++){ ctx.fillStyle = EBU[i]; ctx.fillRect(i*bw, 0, bw+1, CARD_H*0.72); }
+    const y = CARD_H*0.72, hh = CARD_H*0.10;
+    const pl = ['#000d1a','#ffffff','#1a0018','#0a0a0a','#050505','#0f0f0f','#0a0a0a'];
+    for (let i = 0; i < 7; i++){ ctx.fillStyle = pl[i]; ctx.fillRect(i*bw, y, bw+1, hh); }
+    ctx.fillStyle = '#000'; ctx.fillRect(0, y+hh, CARD_W, CARD_H-(y+hh));
+  }
+  const lines = ['THIS IS ONLY A TEST','PLEASE REMAIN SEATED','PLEASE REMAIN'];
+  const idx = Math.min(2, Math.floor(t/2));
+  ctx.globalAlpha = idx === 2 ? 1 : cease((t % 2)/0.35);
+  ctx.fillStyle = 'rgba(0,0,0,0.72)'; ctx.fillRect(0, CARD_H-52, CARD_W, 52);
+  cg(ctx, lines[idx], { y: CARD_H-18, size: 27, track: 2 });
+  ctx.globalAlpha = 1;
+  cgrain(ctx, t, 0.7);
+}
+
+/* ---- 2. CLOCK ---------------------------------------------------
+   Two time systems on one dial. The second hand is dead accurate to
+   the room you're sitting in; the hour hand keeps valley time, where
+   an hour lasts about twenty seconds. The minute hand that would
+   have joined them is simply not there. */
+function drawClock(ctx, t, valleyT){
+  const g = ctx.createRadialGradient(CARD_W/2, CARD_H/2, 18, CARD_W/2, CARD_H/2, CARD_W*0.7);
+  g.addColorStop(0,'#0d2634'); g.addColorStop(1,'#03080c');
+  ctx.fillStyle = g; ctx.fillRect(0,0,CARD_W,CARD_H);
+
+  const cx = CARD_W/2, cy = CARD_H/2 - 16, R = 106;
+  ctx.strokeStyle = '#7fb8cf'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2); ctx.stroke();
+
+  for (let i = 0; i < 60; i++){
+    const a = i/60 * Math.PI*2 - Math.PI/2, major = i % 5 === 0;
+    ctx.strokeStyle = major ? '#cfe6f0' : 'rgba(160,200,216,0.5)';
+    ctx.lineWidth = major ? 4 : 1.5;
+    const r0 = R - (major ? 17 : 7);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a)*r0, cy + Math.sin(a)*r0);
+    ctx.lineTo(cx + Math.cos(a)*R,  cy + Math.sin(a)*R);
+    ctx.stroke();
+  }
+
+  /* second hand - real seconds, discrete ticks, the way they did */
+  const sec = Math.floor(Date.now()/1000) % 60;
+  const sa = sec/60 * Math.PI*2 - Math.PI/2;
+  ctx.strokeStyle = '#e24b3a'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - Math.cos(sa)*16, cy - Math.sin(sa)*16);
+  ctx.lineTo(cx + Math.cos(sa)*(R-12), cy + Math.sin(sa)*(R-12));
+  ctx.stroke();
+
+  /* hour hand - valley time */
+  const hours = (12 + valleyT*24) % 24;
+  const ha = (hours % 12)/12 * Math.PI*2 - Math.PI/2;
+  ctx.strokeStyle = '#eef6f9'; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(ha)*R*0.5, cy + Math.sin(ha)*R*0.5); ctx.stroke();
+  ctx.lineCap = 'butt';
+
+  ctx.fillStyle = '#eef6f9';
+  ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI*2); ctx.fill();
+
+  cg(ctx, 'TRAYSTATION', { y: CARD_H-26, size: 20, track: 7,
+                           fill:'#9ecadd', xs: 0.78 });
+  cgrain(ctx, t, 0.35);
+}
+
+/* ---- 3. PLEASE HOLD --------------------------------------------
+   The hourglass constellation, brought down onto the screen. */
+const CALLERS = ['SEVENTEEN','BLUE','\u22124','YOU','SEVENTEEN','ALREADY'];
+function drawHold(ctx, t){
+  const g = ctx.createLinearGradient(0,0,0,CARD_H);
+  g.addColorStop(0,'#0d7a78'); g.addColorStop(1,'#04322f');
+  ctx.fillStyle = g; ctx.fillRect(0,0,CARD_W,CARD_H);
+
+  const P = 7, cx = CARD_W/2, cy = 132;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(t * 0.5);
+  const rows = ['1111111','.11111.','..111..','...1...','...1...',
+                '..212..','.21112.','1111111'];
+  const sand = Math.floor(((t*1.6) % 1) * 4);
+  rows.forEach((row, ry) => {
+    [...row].forEach((c, rx) => {
+      if (c === '.') return;
+      ctx.fillStyle = c === '2' ? '#e8c26a' : (ry < 4 && ry >= sand ? '#f2f4f0' : '#cfd6d0');
+      ctx.fillRect((rx-3.5)*P, (ry-4)*P, P-0.5, P-0.5);
+    });
+  });
+  ctx.restore();
+
+  cg(ctx, 'YOUR CALL IS IMPORTANT TO US', { y: 240, size: 25, track: 1 });
+  const n = CALLERS[Math.floor(t/1.7) % CALLERS.length];
+  cg(ctx, 'YOU ARE CALLER NUMBER ' + n, { y: 276, size: 21, track: 1,
+                                          fill:'rgba(240,250,247,0.86)' });
+  cg(ctx, '0800 118 118 118 118', { y: CARD_H-32, size: 17, track: 4,
+                                    fill:'rgba(240,250,247,0.55)', weight: 400 });
+  cgrain(ctx, t, 0.25);
+}
+
+/* ---- 4. POSTCARD ------------------------------------------------
+   Estate-agent grammar with nothing for sale, on the object that
+   already says it for a living. The print treatment - white border,
+   a magenta plate a pixel out, halftone, warm stock - is what sells
+   it as a scanned thing rather than an image on a screen. The art
+   inside is a photograph if one exists and a rendered room if not. */
+function postcardArt(){
+  const a = artCtx, W = artCanvas.width, H = artCanvas.height;
+  const im = cardImg.postcard;
+  if (im){
+    const s = Math.max(W/im.width, H/im.height);
+    a.drawImage(im, (W-im.width*s)/2, (H-im.height*s)/2, im.width*s, im.height*s);
+    return;
+  }
+  /* fallback: an empty room, flat-shaded, rendered on the same
+     machine as the valley */
+  const L=108, R=232, T=76, B=162;
+  a.fillStyle = '#3a382f'; a.fillRect(0,0,W,H);
+  a.fillStyle = '#4a463d'; a.beginPath();
+  a.moveTo(L,B); a.lineTo(R,B); a.lineTo(W,H); a.lineTo(0,H); a.fill();
+  a.fillStyle = '#6e6c62'; a.beginPath();
+  a.moveTo(L,T); a.lineTo(R,T); a.lineTo(W,0); a.lineTo(0,0); a.fill();
+  a.fillStyle = '#5b584e'; a.beginPath();
+  a.moveTo(L,T); a.lineTo(L,B); a.lineTo(0,H); a.lineTo(0,0); a.fill();
+  a.fillStyle = '#514e45'; a.beginPath();
+  a.moveTo(R,T); a.lineTo(R,B); a.lineTo(W,H); a.lineTo(W,0); a.fill();
+  a.fillStyle = '#5f5c52'; a.fillRect(L,T,R-L,B-T);
+  a.fillStyle = '#cdd0c8'; a.fillRect(150,98,42,38);
+  a.fillStyle = '#5f5c52'; a.fillRect(170,98,2,38); a.fillRect(150,115,42,2);
+  const lp = a.createLinearGradient(0,B,0,H);
+  lp.addColorStop(0,'rgba(205,208,200,0.18)'); lp.addColorStop(1,'rgba(205,208,200,0)');
+  a.fillStyle = lp; a.beginPath();
+  a.moveTo(148,B); a.lineTo(194,B); a.lineTo(238,H); a.lineTo(100,H); a.fill();
+  a.fillStyle = '#221f1b'; a.beginPath();
+  a.moveTo(30,52); a.lineTo(70,70); a.lineTo(70,158); a.lineTo(30,190); a.fill();
+}
+function drawPostcard(ctx, t){
+  ctx.fillStyle = '#161513'; ctx.fillRect(0,0,CARD_W,CARD_H);
+  postcardArt();
+
+  const bw = 13, cw = artCanvas.width + bw*2, ch = artCanvas.height + bw*2;
+  ctx.save();
+  ctx.translate(CARD_W/2, 168);
+  ctx.rotate(-0.022);
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(-cw/2 + 6, -ch/2 + 8, cw, ch);
+  ctx.fillStyle = '#efece1';
+  ctx.fillRect(-cw/2, -ch/2, cw, ch);
+
+  const ax = -cw/2 + bw, ay = -ch/2 + bw;
+  ctx.drawImage(artCanvas, ax, ay);
+  /* magenta plate, one out of register */
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16;
+  ctx.drawImage(artCanvas, ax + 1.5, ay - 1);
+  ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(196,0,120,0.07)';
+  ctx.fillRect(ax, ay, artCanvas.width, artCanvas.height);
+  /* halftone + warm stock */
+  ctx.globalAlpha = 0.10;
+  if (!dotPat) dotPat = ctx.createPattern(dotTile, 'repeat');
+  ctx.fillStyle = dotPat;
+  ctx.fillRect(ax, ay, artCanvas.width, artCanvas.height);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(232,176,96,0.10)';
+  ctx.fillRect(ax, ay, artCanvas.width, artCanvas.height);
+  /* a crease across one corner */
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cw/2 - 44, -ch/2); ctx.lineTo(cw/2, -ch/2 + 30); ctx.stroke();
+  ctx.restore();
+
+  ctx.globalAlpha = cease((t-2.0)/1.3);
+  cg(ctx, 'YOU COULD BE HERE.', { y: 336, size: 30, track: 1 });
+  ctx.globalAlpha = cease((t-4.4)/1.0);
+  cg(ctx, '0800 0000 0000 0', { y: 364, size: 16, track: 5,
+                                weight: 400, fill:'#cfcdc4' });
+  ctx.globalAlpha = 1;
+  cgrain(ctx, t, 0.5);
+}
+
+/* ---- 5. DIFFICULTY ---------------------------------------------- */
+function drawDifficulty(ctx, t){
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,CARD_W,CARD_H);
+  const bandY = (CARD_H*1.4 - (t*130) % (CARD_H*1.9));
+  for (let y = 0; y < 92; y += 2){
+    const yy = bandY + y; if (yy < -2 || yy > CARD_H) continue;
+    for (let x = 0; x < CARD_W; x += 8){
+      const v = chash(Math.floor(x/8)*13 + Math.floor(yy)*7 + Math.floor(t*20)*3);
+      const c = v*255|0;
+      ctx.fillStyle = 'rgba(' + c + ',' + c + ',' + (v*245|0) + ',0.55)';
+      ctx.fillRect(x, yy, 8, 2);
+    }
+  }
+  const jit = (chash(Math.floor(t*14)) - 0.5) * 5;
+  cg(ctx, 'WE ARE EXPERIENCING',    { y: CARD_H/2 - 22 + jit, size: 26, track: 2 });
+  cg(ctx, 'TECHNICAL DIFFICULTIES', { y: CARD_H/2 + 10 + jit, size: 26, track: 2 });
+  cg(ctx, 'DO NOT ADJUST YOUR SET', { y: CARD_H/2 + 54 + jit, size: 17, track: 4,
+                                      weight: 400, fill:'#9aa096' });
+  cgrain(ctx, t, 1);
+}
+
+/* ---- 6. CLOSEDOWN ----------------------------------------------
+   Ends in nothing, and holds the nothing. A card that stops is
+   worse than a card that loops. */
+function drawClosedown(ctx, t){
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,CARD_W,CARD_H);
+  if (t < 5.6){
+    ctx.globalAlpha = cease(t/0.8) * (1 - cease((t-4.9)/0.6));
+    cg(ctx, 'TRANSMISSION ENDS', { y: CARD_H/2 - 8, size: 30, track: 5 });
+    ctx.globalAlpha *= cease((t-1.6)/0.8);
+    cg(ctx, 'PLEASE SWITCH OFF YOUR SET', { y: CARD_H/2 + 28, size: 17, track: 4,
+                                            weight: 400, fill:'#9aa096' });
+    ctx.globalAlpha = 1;
+    cgrain(ctx, t, 0.3);
+    return;
+  }
+  const k = (t - 5.6)/1.5;
+  if (k >= 1.35) return;
+  const lw = k < 0.55 ? CARD_W*(1 - cease(k/0.55)*0.02)
+                      : CARD_W*(1 - cease((k-0.55)/0.6));
+  const lh = k < 0.35 ? CARD_H*(1 - cease(k/0.35)) + 3 : 3;
+  ctx.globalAlpha = 1 - cease((k - 0.95)/0.4);
+  ctx.fillStyle = '#eef4ec';
+  ctx.fillRect((CARD_W-lw)/2, (CARD_H-lh)/2, Math.max(lw,2), Math.max(lh,2));
+  ctx.globalAlpha = 1;
+}
+
+/* ---- the pool ---------------------------------------------------
+   `hours` are VALLEY hours. A valley hour is DAY_LENGTH/24 real
+   seconds, so the broadcast has a day and a night the way real
+   graveyard-slot television did - just faster. Daytime is
+   deliberately the thinner half. */
+const CARDS = [
+  { id:'bars',       dur:6,  hours:[0,24], sound:'tone',  draw:drawBars },
+  { id:'clock',      dur:8,  hours:[0,24], sound:'hum',   draw:drawClock },
+  { id:'difficulty', dur:5,  hours:[0,24], sound:'hiss',  draw:drawDifficulty },
+  { id:'hold',       dur:12, hours:[19,8], sound:'muzak', draw:drawHold },
+  { id:'postcard',   dur:9,  hours:[17,7], sound:'hum',   draw:drawPostcard },
+  { id:'closedown',  dur:7.4,hours:[1,5],  sound:'none',  draw:drawClosedown },
+];
+
 const tvScreenMat = new THREE.ShaderMaterial({
   uniforms: {
-    uMode: { value: 0 },          // 0 off / 1 static / 2 video
+    uMode: { value: 0 },          // 0 off / 1 static / 2 video / 3 card
     uTex:  { value: tvTexture },
+    uCard: { value: cardTex },
+    uSrc:  { value: new THREE.Vector2(512, 384) },
     uOsd:  { value: osdTex },
     uOsdA: { value: 0 },
     uTime: { value: 0 },
@@ -1076,10 +1517,37 @@ const tvScreenMat = new THREE.ShaderMaterial({
     void main(){ vUv = uv;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
   fragmentShader: `
-    uniform int uMode; uniform sampler2D uTex; uniform sampler2D uOsd;
-    uniform float uOsdA; uniform float uTime;
+    uniform int uMode; uniform sampler2D uTex; uniform sampler2D uCard;
+    uniform sampler2D uOsd;
+    uniform float uOsdA; uniform float uTime; uniform vec2 uSrc;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+    float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+    /* Composite video, as it actually misbehaved:
+         - chroma carried at a fraction of luma bandwidth, so colour
+           smears rightward while the edges themselves stay sharp
+         - dot crawl, the subcarrier beating against luma on vertical
+           edges and crawling diagonally
+         - phosphor bloom on the whites
+       The crawl is gated on edge contrast, so it self-regulates: it
+       bites hard on flat graphics and stays quiet on film, which is
+       exactly the difference a real lead made. */
+    vec3 composite(sampler2D tex, vec2 uv, float crawlAmt){
+      float px = 1.0/uSrc.x;
+      vec3 c0 = texture2D(tex, uv).rgb;
+      vec3 cl = (texture2D(tex, uv - vec2(px*2.0, 0.0)).rgb
+               + texture2D(tex, uv - vec2(px*4.0, 0.0)).rgb
+               + texture2D(tex, uv - vec2(px*6.0, 0.0)).rgb) / 3.0;
+      float y = lum(c0);
+      vec3 col = vec3(y) + (cl - vec3(lum(cl))) * 1.15;
+      float el = lum(texture2D(tex, uv - vec2(px, 0.0)).rgb);
+      float er = lum(texture2D(tex, uv + vec2(px, 0.0)).rgb);
+      float edge = clamp(abs(er - el) * 2.2, 0.0, 1.0);
+      col += sin(uv.x*uSrc.x*1.5708 + uv.y*uSrc.y*3.1416 - uTime*7.0)
+             * edge * crawlAmt;
+      col += pow(max(col - vec3(0.70), vec3(0.0)), vec3(1.4)) * 1.5;
+      return col;
+    }
     void main(){
       /* barrel distortion - the glass */
       vec2 c = vUv*2.0 - 1.0;
@@ -1097,16 +1565,17 @@ const tvScreenMat = new THREE.ShaderMaterial({
         /* static */
         float n = hash(floor(uv*vec2(150.0,112.0)) + floor(uTime*24.0));
         col = vec3(n*0.85 + 0.05);
+      } else if (uMode == 3){
+        /* the station's own graphics - flat, saturated, hard-edged,
+           which is precisely the signal composite handled worst */
+        col = composite(uCard, uv, 0.16);
+        col += 0.035*sin(uv.y*6.0 - uTime*0.8);
+        col += (hash(uv*vec2(90.0) + uTime)*2.0 - 1.0)*0.035;
       } else {
-        /* broadcast: chromatic split + rolling bar */
-        float off = 0.0016 + 0.0008*sin(uTime*1.3);
-        col.r = texture2D(uTex, uv + vec2(off,0.0)).r;
-        col.g = texture2D(uTex, uv).g;
-        col.b = texture2D(uTex, uv - vec2(off,0.0)).b;
-        float roll = 0.05*sin(uv.y*6.0 - uTime*0.8);
-        col += roll;
-        float grain = (hash(uv*vec2(90.0) + uTime)*2.0 - 1.0)*0.05;
-        col += grain;
+        /* the filmed channels, down the same lead */
+        col = composite(uTex, uv, 0.11);
+        col += 0.05*sin(uv.y*6.0 - uTime*0.8);
+        col += (hash(uv*vec2(90.0) + uTime)*2.0 - 1.0)*0.05;
       }
       /* scanlines + vignette on everything lit */
       if (uMode > 0){
@@ -1119,7 +1588,7 @@ const tvScreenMat = new THREE.ShaderMaterial({
       if (uOsdA > 0.01){
         vec2 ouv = (uv - vec2(0.05, 0.72)) / vec2(0.4, 0.24);
         if (ouv.x > 0.0 && ouv.x < 1.0 && ouv.y > 0.0 && ouv.y < 1.0){
-          vec4 o = texture2D(uOsd, vec2(ouv.x, 1.0-ouv.y));
+          vec4 o = texture2D(uOsd, ouv);
           col = mix(col, o.rgb, o.a * uOsdA);
         }
       }
@@ -1183,33 +1652,264 @@ const tvScreenMat = new THREE.ShaderMaterial({
   tv.clickables = [body, screen];
 })();
 
-function tvSetChannel(i){
-  tv.channel = ((i % TV_CHANNELS.length) + TV_CHANNELS.length) % TV_CHANNELS.length;
-  tv.mode = 'static';
-  audio.setStatic(true);
-  if (tv.burstTimer) clearTimeout(tv.burstTimer);
-  tv.burstTimer = setTimeout(() => {
-    tvVideo.src = 'media/' + TV_CHANNELS[tv.channel];
-    tvVideo.muted = false;   // level lives in the WebAudio graph now
-    const p = tvVideo.play();
-    if (p && p.catch) p.catch(() => {});
-  }, 380);
+/* ================================================================
+   THE BROADCAST
+   Nothing here waits to be watched. Programmes and breaks both run
+   off the wall clock, so tuning in drops you wherever the channel
+   already is - mid-shot, mid-sentence, mid-advert. Catch the tail
+   of a break and the programme starts under you, which is the most
+   television thing the set does.
+   ================================================================ */
+const bc = { kind:'off', slot:null, slotT:0, queue:[], pending:null };
+let pendingSeek = null;
+
+function valleyHour(){ return (12 + cycleT * 24) % 24; }
+/* Integer hash. The sin-and-fract trick is biased at the magnitudes
+   a wall-clock break index reaches, which showed up as some cards
+   turning up twice as often as others. */
+function bhash(a, b, c){
+  let n = Math.imul(a|0, 0x9E3779B1) ^ Math.imul(b|0, 0x85EBCA77)
+                                     ^ Math.imul(c|0, 0xC2B2AE3D);
+  n = Math.imul(n ^ (n >>> 16), 0x21F0AAAD);
+  n = Math.imul(n ^ (n >>> 15), 0x735A2D97);
+  n ^= n >>> 15;
+  return (n >>> 0) / 4294967296;
 }
-tvVideo.addEventListener('playing', () => {
-  tv.mode = 'video';
-  audio.setStatic(false);
+/* Deal from a shuffled bag rather than drawing at random. With four
+   or five card slots in a break and a pool about the same size,
+   drawing with replacement means some cards never surface and others
+   land twice. A bag guarantees every card shows before any repeats. */
+function shuffled(pool, a, b){
+  const out = pool.slice();
+  for (let j = out.length - 1; j > 0; j--){
+    const r = Math.floor(bhash(a, b, j * 31 + 7) * (j + 1));
+    const t = out[j]; out[j] = out[r]; out[r] = t;
+  }
+  return out;
+}
+
+/* which break we're in, if any - identical for everyone, everywhere */
+function breakNow(){
+  const now = Date.now()/1000 - BREAK.EPOCH;
+  const into = ((now % BREAK.PERIOD) + BREAK.PERIOD) % BREAK.PERIOD;
+  if (into >= BREAK.LENGTH) return null;
+  return { idx: Math.floor(now / BREAK.PERIOD), offset: into };
+}
+
+/* A break is assembled, not authored: intrusion, spot, intrusion,
+   spot. The seams are what make it a channel and not a playlist.
+   Different channels draw different slots from the same pools, so
+   flipping through a break never repeats. */
+function buildBreak(idx, chan){
+  const h = valleyHour();
+  const cards = CARDS.filter(c => inHours(h, c.hours));
+  const spots = TV_SPOTS.filter(s => inHours(h, s.hours));
+  const pool = cards.length ? cards : CARDS;
+  const seq = []; let total = 0, i = 0, pass = 0, bp = 0;
+  let bag = shuffled(pool, idx, chan);
+  /* Not every break carries an advert. A break that is nothing but
+     intrusions is the worse one of the two, and while the spot pool
+     is small it also stops the same film turning up every time. */
+  let spotLeft = (spots.length && bhash(idx, chan, 3) < 0.45) ? 1 : 0;
+  while (total < BREAK.LENGTH && i < 14){
+    if (spotLeft && i > 0){
+      const s = spots[Math.floor(bhash(idx, chan, 90 + i) * spots.length) % spots.length];
+      seq.push({ type:'spot', file:s.file, dur:s.dur });
+      total += s.dur; spotLeft--;
+    } else {
+      if (bp >= bag.length){                 // bag empty: deal a fresh one
+        bag = shuffled(pool, idx + (++pass) * 911, chan);
+        bp = 0;
+        const prev = seq.length && seq[seq.length-1].card;
+        if (bag.length > 1 && bag[0] === prev){ bag[0] = bag[1]; bag[1] = prev; }
+      }
+      const c = bag[bp++];
+      seq.push({ type:'card', card:c, dur:c.dur });
+      total += c.dur;
+    }
+    i++;
+  }
+  return seq;
+}
+
+function showChannel(){
   if (witch.state === 'active'){
     tv.led.material.color.setHex(0x802020);   // half-lit. wrong.
     return;                                   // no channel number tonight
   }
   setOsd('CH ' + (tv.channel + 1));
   tv.led.material.color.setHex(0x35C845);
-});
-tvVideo.addEventListener('error', () => {
+}
+
+/* seek = a number, or 'broadcast' to land wherever the clock says */
+function playVideo(path, seek, loop){
+  pendingSeek = (seek === undefined) ? null : seek;
+  tvVideo.loop = !!loop;
+  tvVideo.src = path;
+  tvVideo.muted = false;      // level lives in the WebAudio graph
+  const p = tvVideo.play();
+  if (p && p.catch) p.catch(() => {});
+}
+
+/* A channel entry is either a filename or a list of them. A list
+   rotates on the same wall clock everything else runs on, so a
+   channel has a schedule rather than a single looping tape. */
+const ROTATE = 420;   // real seconds a channel stays on one film
+function programmeFile(){
+  const e = TV_CHANNELS[tv.channel];
+  if (typeof e === 'string') return e;
+  const n = Math.floor((Date.now()/1000 - BREAK.EPOCH) / ROTATE);
+  return e[((n % e.length) + e.length) % e.length];
+}
+function startProgramme(){
+  bc.kind = 'programme'; bc.slot = null; bc.queue.length = 0;
+  audio.cardSound('none');
+  tv.mode = 'static'; audio.setStatic(true);
+  playVideo('media/' + programmeFile(), 'broadcast', true);
+}
+
+function startSlot(slot, t0){
+  if (t0 >= slot.dur){ nextSlot(); return; }
+  bc.slot = slot; bc.slotT = t0;
+  if (slot.type === 'card'){
+    bc.kind = 'card';
+    pendingSeek = null;          // abandon any load still in flight
+    tvVideo.pause();
+    tv.mode = 'card';
+    bc.drawAcc = 0;
+    slot.card.draw(cardCtx, t0, cycleT);
+    cardTex.needsUpdate = true;
+    audio.cardSound(slot.card.sound);
+    showChannel();
+  } else {
+    bc.kind = 'spot';
+    audio.cardSound('none');
+    tv.mode = 'static'; audio.setStatic(true);
+    playVideo('spots/' + slot.file, t0, false);
+  }
+}
+
+function nextSlot(){
+  bc.queue.shift();
+  if (!bc.queue.length) startProgramme();
+  else startSlot(bc.queue[0], 0);
+}
+
+function tvSetChannel(i){
+  tv.channel = ((i % TV_CHANNELS.length) + TV_CHANNELS.length) % TV_CHANNELS.length;
+  /* Stop the outgoing channel before anything else. Left running, its
+     queue keeps advancing behind the static burst and calls startSlot
+     under the incoming tune-in - and if clicks arrive faster than the
+     burst, the tune-in is cancelled every time while the old queue
+     plays on, so the set appears stuck on a channel you have left. */
+  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0; bc.slotT = 0;
+  pendingSeek = null;
+  audio.cardSound('none');       // before setStatic: it clears the hiss
   tv.mode = 'static';
-  if (witch.state === 'active') return;       // silent failure after 3
+  audio.setStatic(true);
+  if (tv.burstTimer) clearTimeout(tv.burstTimer);
+  tv.burstTimer = setTimeout(() => {
+    /* ?card=bars pins one card up; ?break=1 always tunes into a break */
+    const forced = QS.get('card');
+    if (forced){
+      const c = CARDS.filter(x => x.id === forced)[0];
+      if (c){ bc.queue = [{type:'card', card:c, dur:1e6}]; startSlot(bc.queue[0], 0); return; }
+    }
+    const br = QS.has('break')
+      ? { idx: Math.floor(Date.now()/1000/BREAK.PERIOD), offset: 0 }
+      : breakNow();
+    if (!br){ startProgramme(); return; }
+    /* mid-break: walk the running order to wherever it already is */
+    bc.queue = buildBreak(br.idx, tv.channel);
+    let off = br.offset;
+    while (bc.queue.length > 1 && off >= bc.queue[0].dur){
+      off -= bc.queue[0].dur; bc.queue.shift();
+    }
+    if (off >= bc.queue[0].dur){ startProgramme(); return; }
+    startSlot(bc.queue[0], off);
+  }, 380);
+}
+
+/* Video events are asynchronous and outlive the thing that asked
+   for them: change channel twice quickly and the abandoned load
+   still reports back. Every handler therefore checks that a video
+   slot is what's actually meant to be on air, or a late event from
+   a dead load will paint a stale frame over a running card. */
+function tvWantsVideo(){ return bc.kind === 'programme' || bc.kind === 'spot'; }
+
+/* the seek happens under the static burst, so it's never seen */
+tvVideo.addEventListener('loadedmetadata', () => {
+  if (pendingSeek === null || !tvWantsVideo()) return;
+  const d = tvVideo.duration, s = pendingSeek;
+  pendingSeek = null;
+  if (!isFinite(d) || d <= 0) return;
+  const t = s === 'broadcast' ? (Date.now()/1000 - BREAK.EPOCH) % d : s;
+  try { tvVideo.currentTime = Math.max(0, Math.min(d - 0.3, t)); } catch(e){}
+});
+function tvReveal(){
+  if (!tvWantsVideo()) return;                // a card holds the set
+  if (pendingSeek !== null || tvVideo.seeking) return;
+  if (tv.mode === 'video') return;            // a loop, not a tune-in
+  tv.mode = 'video';
+  audio.setStatic(false);
+  showChannel();
+}
+tvVideo.addEventListener('seeked', tvReveal);
+tvVideo.addEventListener('playing', tvReveal);
+tvVideo.addEventListener('error', () => {
+  if (bc.kind === 'card') return;                  // not ours to report
+  if (bc.kind === 'spot'){ nextSlot(); return; }   // a dead spot is skipped
+  tv.mode = 'static';
+  if (witch.state === 'active') return;            // silent failure after 3
   setOsd('NO SIGNAL');
 });
+tvVideo.addEventListener('ended', () => {
+  if (bc.kind === 'spot') nextSlot();
+});
+
+/* the only per-frame work: run down the current slot, draw the card */
+function bcUpdate(dt){
+  if (witch.state === 'active' || bc.kind === 'off') return;
+  if (bc.kind === 'card'){
+    bc.slotT += dt;
+    /* character generators ran at a fraction of frame rate and the
+       judder is period-correct, so this is taste as much as thrift -
+       it also cuts the texture upload to a quarter. */
+    bc.drawAcc = (bc.drawAcc || 0) + dt;
+    if (bc.drawAcc >= 1/15){
+      bc.drawAcc = 0;
+      bc.slot.card.draw(cardCtx, bc.slotT, cycleT);
+      cardTex.needsUpdate = true;
+    }
+    if (bc.slotT >= bc.slot.dur) nextSlot();
+  } else if (bc.kind === 'spot'){
+    bc.slotT += dt;
+    if (bc.slotT >= bc.slot.dur) nextSlot();
+  }
+}
+
+/* ?debug=1 - a corner readout of the set's actual state */
+const dbgEl = QS.has('debug') ? (function(){
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:99;white-space:pre;'
+    + 'font:11px/1.45 "Courier New",monospace;color:#39FF5A;pointer-events:none;'
+    + 'background:rgba(0,0,0,0.62);padding:8px 10px';
+  document.body.appendChild(d); return d;
+})() : null;
+function dbgUpdate(){
+  if (!dbgEl) return;
+  const br = breakNow();
+  const nm = s => s ? (s.card ? s.card.id : s.file) : '-';
+  dbgEl.textContent =
+    'ch ' + (tv.channel + 1) + '   mode ' + tv.mode + '   bc ' + bc.kind + '\n' +
+    'slot ' + nm(bc.slot) + '  ' + (bc.slotT || 0).toFixed(1) +
+      '/' + (bc.slot ? bc.slot.dur : '-') + '\n' +
+    'queue ' + (bc.queue.map(nm).join(' ') || '-') + '\n' +
+    'break ' + (br ? br.offset.toFixed(0) + 's of ' + BREAK.LENGTH : 'no') +
+      '   valley ' + valleyHour().toFixed(1) + 'h' +
+      '   vid ' + (tvVideo.readyState) + (tvVideo.paused ? ' paused' : ' playing');
+}
+
 function tvNext(){
   if (witch.state === 'active') return;       // the set is not listening
   audio.init();
@@ -1219,8 +1919,11 @@ function tvNext(){
 }
 function tvOff(){
   tv.mode = 'off';
+  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0;
+  pendingSeek = null;
+  if (tv.burstTimer) clearTimeout(tv.burstTimer);
   tvVideo.pause(); tvVideo.removeAttribute('src'); tvVideo.load();
-  audio.setStatic(false);
+  audio.setStatic(false); audio.cardSound('none'); audio.setCardVolume(0);
   tv.led.material.color.setHex(0xC03020);
 }
 
@@ -1656,11 +2359,15 @@ function drawApparition(file){
 
 function witchPlay(app){
   audio.init(); audio.attachVideo(tvVideo);
+  /* the broadcast doesn't run tonight */
+  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0; pendingSeek = null;
+  audio.cardSound('none'); audio.setCardVolume(0);
   tv.mode = 'static'; audio.setStatic(true);
   if (tv.burstTimer) clearTimeout(tv.burstTimer);
   tv.burstTimer = setTimeout(() => {
     if (witch.state !== 'active') return;
     if (app.media){
+      tvVideo.loop = true;
       tvVideo.src = 'witching/' + app.media;
       tvVideo.muted = false;
       const p = tvVideo.play(); if (p && p.catch) p.catch(() => {});
@@ -2052,6 +2759,10 @@ function enterValley(){
   audio.init();
   audio.startup();
   /* dev keys (ours): drop into the right conditions for filming */
+  if (QS.has('hour')){
+    const hr = parseFloat(QS.get('hour'));
+    if (isFinite(hr)) cycleT = (((hr - 12) / 24) % 1 + 1) % 1;
+  }
   if (QS.has('witching')) cycleT = 0.60;                 // 3 AM in ~40s
   if (QS.has('snow')){ weather.state = 'RAIN';
     weather.rainTarget = 0.7; weather.timer = 90; }
@@ -2250,9 +2961,15 @@ function animate(){
   }
   /* --- television --- */
   const tvD = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
+  bcUpdate(dt);
   tvScreenMat.uniforms.uTime.value = time;
   tvScreenMat.uniforms.uMode.value =
+    tv.mode === 'card' ? 3 :
     tv.mode === 'video' ? 2 : (tv.mode === 'static' ? 1 : 0);
+  dbgUpdate();
+  if (tv.mode === 'card') tvScreenMat.uniforms.uSrc.value.set(CARD_W, CARD_H);
+  else if (tvVideo.videoWidth)
+    tvScreenMat.uniforms.uSrc.value.set(tvVideo.videoWidth, tvVideo.videoHeight);
   if (tv.osdA > 0){
     tv.osdA = Math.max(0, tv.osdA - dt * 0.45);
     tvScreenMat.uniforms.uOsdA.value = Math.min(1, tv.osdA * 1.6);
@@ -2265,12 +2982,14 @@ function animate(){
     tv.light.intensity = 0;
   }
   /* broadcast volume falls off with distance; wind ducks under it */
-  if (tv.mode === 'video'){
+  if (tv.mode === 'video' || tv.mode === 'card'){
     const prox = Math.max(0, Math.min(1, 1 - (tvD - 7) / 101));
-    audio.setTvVolume(0.8 * prox);
+    audio.setTvVolume(tv.mode === 'video' ? 0.8 * prox : 0);
+    audio.setCardVolume(tv.mode === 'card' ? prox : 0);
     audio.setDuck(prox * 0.9);
   } else {
     audio.setTvVolume(0);
+    audio.setCardVolume(0);
     audio.setDuck(0);
   }
 
