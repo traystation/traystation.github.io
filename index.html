@@ -281,7 +281,10 @@ const TV_SPOTS = [
   { file:'turbovac.mp4', dur:62, hours:[0,24] },
 ];
 const BREAK = {
-  PERIOD: 300,     // real seconds between breaks
+  PERIOD: 293,     // real seconds between breaks. Deliberately coprime
+                   // with 60: a round period would start every break at
+                   // the same phase of a minute-long hold loop, so the
+                   // music would only ever be heard from a few points.
   LENGTH: 96,      // real seconds a break lasts - must comfortably
                    // exceed the longest spot, or the spot eats the
                    // whole window and the cards never surface
@@ -1123,11 +1126,11 @@ const audio = (function(){
       const g2 = ctx.createGain(); g2.gain.value = 0.32;
       o2.connect(g2); g2.connect(g); o1.connect(g); g.connect(cardBus);
       o1.start(); o2.start(); cardNodes = [o1, o2];
-    } else if (kind === 'muzak'){
+    } else if (kind === 'muzak' || kind === 'muzak-late'){
+      const file = kind === 'muzak-late' ? 'cards/hold-late.mp3' : 'cards/hold.mp3';
       if (!cardEl){
         cardEl = document.createElement('audio');
         cardEl.loop = true; cardEl.preload = 'none';
-        cardEl.src = 'cards/hold.mp3';
       }
       let routed = false;
       try {
@@ -1135,6 +1138,20 @@ const audio = (function(){
         cardSrc.connect(cardBus); routed = true;
       } catch(e){}
       if (!routed){ chordBed(); return; }
+      if (cardEl.dataset.file !== file){ cardEl.dataset.file = file; cardEl.src = file; }
+      /* The hold loop runs on the same clock as everything else. It was
+         restarting from the top on every tune-in, which meant the same
+         twelve seconds of the track forever and a bed that plainly
+         began when you arrived - the one thing the whole broadcast is
+         built to avoid. Now it is already playing when you get there. */
+      const seek = () => {
+        const d = cardEl.duration;
+        if (isFinite(d) && d > 0){
+          try { cardEl.currentTime = (Date.now()/1000) % d; } catch(e){}
+        }
+      };
+      if (cardEl.readyState >= 1) seek();
+      else cardEl.addEventListener('loadedmetadata', seek, { once:true });
       const p = cardEl.play();
       if (p && p.catch) p.catch(() => { if (!cardNodes) chordBed(); });
     }
@@ -1538,7 +1555,11 @@ const CARDS = [
   { id:'bars',       dur:6,  hours:[0,24], sound:'tone',  draw:drawBars },
   { id:'clock',      dur:8,  hours:[0,24], sound:'hum',   draw:drawClock },
   { id:'difficulty', dur:5,  hours:[0,24], sound:'hiss',  draw:drawDifficulty },
-  { id:'hold',       dur:12, hours:[19,8], sound:'muzak', draw:drawHold },
+  { id:'hold',       dur:12, hours:[19,8], draw:drawHold,
+    /* strings in the evening; after valley-midnight the bed changes
+       and nobody will be able to say why the hour feels worse */
+    sound: () => { const h = valleyHour(); return (h >= 1 && h < 6)
+                     ? 'muzak-late' : 'muzak'; } },
   { id:'postcard',   dur:9,  hours:[17,7], sound:'hum',   draw:drawPostcard },
   { id:'closedown',  dur:7.4,hours:[1,5],  sound:'none',  draw:drawClosedown },
 ];
@@ -1820,7 +1841,8 @@ function startSlot(slot, t0){
     bc.drawAcc = 0;
     slot.card.draw(cardCtx, t0, cycleT);
     cardTex.needsUpdate = true;
-    audio.cardSound(slot.card.sound);
+    audio.cardSound(typeof slot.card.sound === 'function'
+                    ? slot.card.sound() : slot.card.sound);
     showChannel();
   } else {
     bc.kind = 'spot';
