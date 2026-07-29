@@ -342,7 +342,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'about.txt',
     label: 'About',
     action: 'about',
-    pos: [-34, -30],
+    pos: [-44, -30],
     glyph: 'txt'
   },
   {
@@ -350,7 +350,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'contact.eml',
     label: 'Contact',
     action: 'contact',
-    pos: [-24, -22],
+    pos: [-17, -42],
     glyph: 'eml'
   },
   {
@@ -2789,7 +2789,7 @@ function handleClick(cx, cy){
   const tvHits = raycaster.intersectObjects(tv.clickables);
   if (tvHits.length){
     const d = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
-    if (d <= 24) tvNext();
+    if (d <= 44) tvNext();
     return;
   }
 
@@ -3161,7 +3161,7 @@ function animate(){
     } else {
       promptEl.classList.remove('show');
     }
-  } else if (tvD < 17){
+  } else if (tvD < 22){
     promptEl.textContent = tv.mode === 'off'
       ? 'Turn on the television' : 'Change channel';
     promptEl.classList.add('show');
