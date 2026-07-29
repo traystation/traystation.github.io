@@ -267,6 +267,19 @@ const TV_CHANNELS = [
   'shudu-samsung_43.mp4',                                          // + conceptual
   'daphnegroeneveld_43.mp4',                                       // + beauty / BTS
 ];
+/* Programme lengths in seconds, so a channel can run a real schedule
+   rather than a modulo of an arbitrary window. A film with no entry
+   here doesn't break anything - its channel quietly falls back to
+   rotating on the break clock, so new films can be added before
+   anyone measures them. */
+const TV_LEN = {
+  'skepta_43.mp4': 57,  'yungblud_43.mp4': 38,
+  'indigoboy_43.mp4': 76, 'numero_43.mp4': 51, 'schon-goldfinger_43.mp4': 42,
+  'caradela_43.mp4': 32,
+  'shudu-samsung_43.mp4': 14,
+  'daphnegroeneveld_43.mp4': 57,
+};
+
 const TV_POS = [4, -32];          // where the television sits in the grass
 
 /* ================================================================
@@ -342,7 +355,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'about.txt',
     label: 'About',
     action: 'about',
-    pos: [-44, -30],
+    pos: [-34, -30],
     glyph: 'txt'
   },
   {
@@ -350,7 +363,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'contact.eml',
     label: 'Contact',
     action: 'contact',
-    pos: [-17, -42],
+    pos: [-24, -22],
     glyph: 'eml'
   },
   {
@@ -1756,7 +1769,7 @@ const tvScreenMat = new THREE.ShaderMaterial({
    television thing the set does.
    ================================================================ */
 const bc = { kind:'off', slot:null, slotT:0, queue:[], pending:null,
-             progIdx:0, progNext:null };
+             progIdx:0 };
 let pendingSeek = null;
 
 function valleyHour(){ return (12 + cycleT * 24) % 24; }
@@ -1869,28 +1882,42 @@ function channelFilms(){
   const e = TV_CHANNELS[tv.channel];
   return typeof e === 'string' ? [e] : e;
 }
-/* Where in the running order the channel is when you arrive. Keyed to
-   the break index so every visitor tuning in at the same moment gets
-   the same film - the channel is somewhere specific whether or not
-   anyone is watching. */
-function programmeIndex(){
-  const n = Math.floor((Date.now()/1000 - BREAK.EPOCH) / BREAK.PERIOD);
-  const len = channelFilms().length;
-  return ((n % len) + len) % len;
+/* Where the channel is right now: which film, and how far into it.
+   The running order loops on the same wall clock as everything else,
+   so this is a schedule in the playout sense - the channel is at a
+   specific point in a specific programme whether or not anyone is
+   watching, and two visitors tuning in together see the same frame.
+
+   Falls back to rotating on the break clock if any length is unknown. */
+function programmeNow(){
+  const films = channelFilms();
+  const lens = films.map(f => TV_LEN[f]);
+  if (lens.some(l => !l)){
+    const n = Math.floor((Date.now()/1000 - BREAK.EPOCH) / BREAK.PERIOD);
+    return { idx: ((n % films.length) + films.length) % films.length,
+             at: 'broadcast' };
+  }
+  const total = lens.reduce((a, b) => a + b, 0);
+  let p = (((Date.now()/1000 - BREAK.EPOCH) % total) + total) % total;
+  for (let i = 0; i < films.length; i++){
+    if (p < lens[i]) return { idx: i, at: p };
+    p -= lens[i];
+  }
+  return { idx: films.length - 1, at: 0 };
 }
 function startProgramme(){
   bc.kind = 'programme'; bc.slot = null; bc.queue.length = 0;
   audio.cardSound('none');
   const films = channelFilms();
-  /* after a break at a junction, carry on where the channel was going;
-     otherwise ask the clock where this channel is */
-  bc.progIdx = bc.progNext === null ? programmeIndex()
-                                    : bc.progNext % films.length;
-  bc.progNext = null;
+  /* Always ask the clock. The schedule kept running while the adverts
+     were on, so coming back from a break lands you further along -
+     which is what television does to you. */
+  const pos = programmeNow();
+  bc.progIdx = pos.idx;
   tv.mode = 'static'; audio.setStatic(true);
   /* Only a one-film channel loops. Anywhere there is something to
      follow, let the film end so the channel can move on. */
-  playVideo('media/' + films[bc.progIdx], 'broadcast', films.length < 2);
+  playVideo('media/' + films[bc.progIdx], pos.at, films.length < 2);
 }
 
 /* The film ended. This is the junction between programmes, which is
@@ -1903,14 +1930,12 @@ function startProgramme(){
 function nextProgramme(){
   const films = channelFilms();
   if (films.length < 2) return;
-  const next = (bc.progIdx + 1) % films.length;
   const br = breakNow();
-  if (br){
-    bc.progNext = next;
-    if (enterBreak(br)) return;
-    bc.progNext = null;
-  }
-  bc.progIdx = next;
+  if (br && enterBreak(br)) return;   // the schedule runs on without us
+  /* stepped rather than re-derived: at this exact instant the clock is
+     on the boundary, and a declared length a second out would replay
+     the tail of the film that just finished */
+  bc.progIdx = (bc.progIdx + 1) % films.length;
   playVideo('media/' + films[bc.progIdx], 0, false);
 }
 
@@ -1950,7 +1975,6 @@ function tvSetChannel(i){
      burst, the tune-in is cancelled every time while the old queue
      plays on, so the set appears stuck on a channel you have left. */
   bc.kind = 'off'; bc.slot = null; bc.queue.length = 0; bc.slotT = 0;
-  bc.progNext = null;            // a new channel asks the clock, not the last one
   pendingSeek = null;
   audio.cardSound('none');       // before setStatic: it clears the hiss
   tv.mode = 'static';
@@ -1983,7 +2007,8 @@ tvVideo.addEventListener('loadedmetadata', () => {
   const d = tvVideo.duration, s = pendingSeek;
   pendingSeek = null;
   if (!isFinite(d) || d <= 0) return;
-  const t = s === 'broadcast' ? (Date.now()/1000 - BREAK.EPOCH) % d : s;
+  let t = s === 'broadcast' ? (Date.now()/1000 - BREAK.EPOCH) % d : s;
+  if (t >= d) t = t % d;        // a TV_LEN that runs long self-corrects
   try { tvVideo.currentTime = Math.max(0, Math.min(d - 0.3, t)); } catch(e){}
 });
 function tvReveal(){
@@ -2063,7 +2088,7 @@ function tvNext(){
 }
 function tvOff(){
   tv.mode = 'off';
-  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0; bc.progNext = null;
+  bc.kind = 'off'; bc.slot = null; bc.queue.length = 0;
   pendingSeek = null;
   if (tv.burstTimer) clearTimeout(tv.burstTimer);
   tvVideo.pause(); tvVideo.removeAttribute('src'); tvVideo.load();
@@ -2789,7 +2814,7 @@ function handleClick(cx, cy){
   const tvHits = raycaster.intersectObjects(tv.clickables);
   if (tvHits.length){
     const d = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
-    if (d <= 44) tvNext();
+    if (d <= 24) tvNext();
     return;
   }
 
@@ -3161,7 +3186,7 @@ function animate(){
     } else {
       promptEl.classList.remove('show');
     }
-  } else if (tvD < 22){
+  } else if (tvD < 17){
     promptEl.textContent = tv.mode === 'off'
       ? 'Turn on the television' : 'Change channel';
     promptEl.classList.add('show');
