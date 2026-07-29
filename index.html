@@ -2670,8 +2670,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup',   e => { keys[e.key.toLowerCase()] = false; });
 
 canvas.addEventListener('pointerdown', e => {
-  if (e.pointerType === 'touch' && e.clientX < innerWidth*0.4 &&
-      e.clientY > innerHeight*0.5) return;   // joystick zone
+  if (e.pointerType === 'touch' && inJoyZone(e.clientX, e.clientY)) return;
   dragging = true; dragDist = 0;
   lastPX = e.clientX; lastPY = e.clientY;
   canvas.classList.add('dragging');
@@ -2708,12 +2707,24 @@ if (document.body.classList.contains('touch')){
   if (hintEl) hintEl.textContent = 'Drag to look   \u00b7   Use the stick, bottom-left, to walk';
 }
 
+/* The listener is on the window, so a touch on the taskbar bubbles up
+   here too - and claiming it with preventDefault() is what stopped the
+   start button from ever registering a click. Two guards: the touch
+   must have begun on the world itself (or on the stick), and the zone
+   stops short of the taskbar so a near miss doesn't get swallowed
+   either. Anything added to the chrome later is excluded for free. */
+const taskbarEl = document.getElementById('taskbar');
+function joyOwns(el){
+  return !el || el === canvas || el === document.body || stick.contains(el);
+}
 function inJoyZone(x, y){
-  return x < innerWidth*0.4 && y > innerHeight*0.5;
+  const floor = innerHeight - ((taskbarEl && taskbarEl.offsetHeight) || 32) - 6;
+  return x < innerWidth*0.4 && y > innerHeight*0.5 && y < floor;
 }
 addEventListener('touchstart', e => {
   if (joyId !== null) return;                 // already tracking a touch
   const t = e.changedTouches[0];
+  if (!joyOwns(t.target)) return;             // the chrome asked first
   if (!inJoyZone(t.clientX, t.clientY)) return;
   joyId = t.identifier;
   stick.style.left = (t.clientX - 48) + 'px';
