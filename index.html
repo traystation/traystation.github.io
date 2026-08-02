@@ -292,8 +292,15 @@ const TV_POS = [4, -32];          // where the television sits in the grass
 
    Films live in /spots/. Everything else is drawn - see THE CARDS.
    ================================================================ */
+/* `dur` is the file's true length. An optional `slice` is how long it
+   gets in a break: where a spot is longer than the break can hold, the
+   visitor catches a window of something already running rather than
+   watching it whole - which is what a live broadcast is. Which window
+   comes from the clock, so it advances between breaks and two visitors
+   catching the same break hear the same words. */
 const TV_SPOTS = [
-  { file:'turbovac.mp4', dur:62, hours:[0,24] },
+  { file:'turbovac.mp4', dur:62,  hours:[0,24] },
+  { file:'midnight-hour.mp4', dur:112, slice:40, hours:[0,6] },
 ];
 const BREAK = {
   PERIOD: 293,     // real seconds between breaks. Deliberately coprime
@@ -355,7 +362,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'about.txt',
     label: 'About',
     action: 'about',
-    pos: [-31, -20],
+    pos: [-34, -30],
     glyph: 'txt'
   },
   {
@@ -363,7 +370,7 @@ const DESKTOP_EXPERIENCES = [
     file: 'contact.eml',
     label: 'Contact',
     action: 'contact',
-    pos: [-24, -42],
+    pos: [-24, -22],
     glyph: 'eml'
   },
   {
@@ -1823,8 +1830,13 @@ function buildBreak(idx, chan){
   while (total < BREAK.LENGTH && i < 14){
     if (spotLeft && i > 0){
       const s = spots[Math.floor(bhash(idx, chan, 90 + i) * spots.length) % spots.length];
-      seq.push({ type:'spot', file:s.file, dur:s.dur });
-      total += s.dur; spotLeft--;
+      const run = Math.min(s.slice || s.dur, s.dur);
+      /* where in the transmission this break catches it */
+      const from = s.slice && s.dur > s.slice
+        ? (Math.floor((Date.now()/1000 - BREAK.EPOCH) / BREAK.PERIOD) * s.slice) % s.dur
+        : 0;
+      seq.push({ type:'spot', file:s.file, dur:run, from:from });
+      total += run; spotLeft--;
     } else {
       if (bp >= bag.length){                 // bag empty: deal a fresh one
         bag = shuffled(pool, idx + (++pass) * 911, chan);
@@ -1957,7 +1969,7 @@ function startSlot(slot, t0){
     bc.kind = 'spot';
     audio.cardSound('none');
     tv.mode = 'static'; audio.setStatic(true);
-    playVideo('spots/' + slot.file, t0, false);
+    playVideo('spots/' + slot.file, (slot.from || 0) + t0, false);
   }
 }
 
@@ -2053,7 +2065,7 @@ function bcUpdate(dt){
     if (bc.slotT >= bc.slot.dur) nextSlot();
   } else if (bc.kind === 'spot'){
     bc.slotT += dt;
-    if (bc.slotT >= bc.slot.dur) nextSlot();
+    if (bc.slotT >= bc.slot.dur) nextSlot();   // the slice ends; the file may not
   }
 }
 
@@ -2814,7 +2826,7 @@ function handleClick(cx, cy){
   const tvHits = raycaster.intersectObjects(tv.clickables);
   if (tvHits.length){
     const d = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
-    if (d <= 44) tvNext();
+    if (d <= 24) tvNext();
     return;
   }
 
@@ -3186,7 +3198,7 @@ function animate(){
     } else {
       promptEl.classList.remove('show');
     }
-  } else if (tvD < 22){
+  } else if (tvD < 17){
     promptEl.textContent = tv.mode === 'off'
       ? 'Turn on the television' : 'Change channel';
     promptEl.classList.add('show');
