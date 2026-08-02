@@ -2826,7 +2826,7 @@ function handleClick(cx, cy){
   const tvHits = raycaster.intersectObjects(tv.clickables);
   if (tvHits.length){
     const d = Math.hypot(player.x - TV_POS[0], player.z - TV_POS[1]);
-    if (d <= 24) tvNext();
+    if (d <= 44) tvNext();
     return;
   }
 
@@ -3198,7 +3198,7 @@ function animate(){
     } else {
       promptEl.classList.remove('show');
     }
-  } else if (tvD < 17){
+  } else if (tvD < 27){
     promptEl.textContent = tv.mode === 'off'
       ? 'Turn on the television' : 'Change channel';
     promptEl.classList.add('show');
